@@ -6,7 +6,111 @@
 (in-package :expert-system)
 
 ;; =============================================================================
-;; MAIN CONSULTATION INTERFACE
+(defun print-problem-recommendations (problem)
+  "Print specific recommendations for a car problem"
+  (case problem
+    ((car-problem dead-battery)
+     (format t "  ✓ Test battery voltage (should be 12.6V when off)~%")
+     (format t "  ✓ Clean battery terminals and check connections~%")
+     (format t "  ✓ Load test battery or check with multimeter~%")
+     (format t "  ⚠ Estimated cost: $100-$200 for new battery~%"))
+      
+    ((car-problem starter-failure)
+     (format t "  ✓ Have starter motor tested~%")
+     (format t "  ✓ Check starter connections and solenoid~%")
+     (format t "  ✓ Test starter relay~%")
+     (format t "  ⚠ Estimated cost: $200-$500~%"))
+      
+    ((car-problem fuel-system)
+     (format t "  ✓ Check fuel level and fuel pump~%")
+     (format t "  ✓ Test fuel pressure and filter~%")
+     (format t "  ✓ Inspect fuel injectors~%")
+     (format t "  ⚠ Estimated cost: $100-$600~%"))
+      
+    ((car-problem ignition-system)
+     (format t "  ✓ Check spark plugs and ignition coils~%")
+     (format t "  ✓ Test ignition timing and wires~%")
+     (format t "  ✓ Inspect distributor components~%")
+     (format t "  ⚠ Estimated cost: $150-$800~%"))
+      
+    ((car-problem engine-misfire)
+     (format t "  ✓ Check spark plugs, wires, and coils~%")
+     (format t "  ✓ Clean fuel injectors~%")
+     (format t "  ✓ Check for vacuum leaks~%")
+     (format t "  ⚠ Estimated cost: $100-$1000~%"))
+      
+    ((car-problem overheating)
+     (format t "  🚨 STOP DRIVING IMMEDIATELY - ENGINE DAMAGE RISK~%")
+     (format t "  ✓ Check coolant level and leaks~%")
+     (format t "  ✓ Test radiator cap and water pump~%")
+     (format t "  ⚠ Estimated cost: $200-$1500~%"))
+      
+    ((car-problem brake-problems)
+     (format t "  ⚠ SAFETY CRITICAL - Address immediately~%")
+     (format t "  ✓ Check brake fluid level and color~%")
+     (format t "  ✓ Inspect brake pads and rotors~%")
+     (format t "  ✓ Test brake system for leaks~%")
+     (format t "  ⚠ Estimated cost: $200-$800~%"))
+      
+    (otherwise
+     (format t "  ✓ Consult a qualified automotive technician~%")
+     (format t "  ✓ Have a comprehensive diagnostic performed~%"))))
+
+(defun consultation-menu ()
+  "Display consultation menu and handle user choices"
+  (format t "~%=== CAR DIAGNOSTIC CONSULTATION ===~%")
+  (format t "1. Full diagnostic consultation~%")
+  (format t "2. Quick symptom check~%")
+  (format t "3. Run demonstration scenarios~%")
+  (format t "4. Exit~%")
+  (format t "~%Choose an option (1-4): ")
+  (let ((choice (read)))
+    (case choice
+      (1 (run-comprehensive-diagnosis))
+      (2 (quick-demo))
+      (3 (run-demo-scenarios))
+      (4 (format t "Goodbye!~%"))
+      (otherwise 
+       (format t "Invalid choice. Please select 1-4.~%")
+       (consultation-menu)))))
+
+(defun run-comprehensive-diagnosis ()
+  "Run a comprehensive diagnostic consultation"
+  (format t "~%=== COMPREHENSIVE CAR DIAGNOSIS ===~%")
+  (clear-facts)
+  
+  ;; Test all major car problems
+  (let ((problems '((car-problem dead-battery)
+                    (car-problem starter-failure)
+                    (car-problem fuel-system)
+                    (car-problem ignition-system)
+                    (car-problem engine-misfire)
+                    (car-problem overheating)
+                    (car-problem brake-problems))))
+    
+    (format t "~%Testing all diagnostic categories...~%")
+    
+    (let ((diagnosed-problems '()))
+      (dolist (problem problems)
+        (let ((cf (prove-goal problem)))
+          (when (> (abs cf) 0.1)  ; Only include problems with some evidence
+            (push (list problem 
+                       (case (first problem)
+                         (car-problem (case (second problem)
+                                       (dead-battery "Dead Battery")
+                                       (starter-failure "Starter Failure")
+                                       (fuel-system "Fuel System")
+                                       (ignition-system "Ignition System")
+                                       (engine-misfire "Engine Misfire")
+                                       (overheating "Overheating")
+                                       (brake-problems "Brake Problems")
+                                       (otherwise "Unknown Problem"))))
+                       cf)
+                  diagnosed-problems))))
+      
+      (display-diagnosis-results diagnosed-problems))))
+
+;; Main entry points
 ;; =============================================================================
 
 (defun run-car-diagnosis ()
@@ -108,9 +212,10 @@
                 (format t "~%For ~A:~%" problem-name)
                 (print-problem-recommendations (first problem)))))))
       
-      (format t "~%No specific problems could be identified.~%")
-      (format t "Consider consulting a professional mechanic for~%")
-      (format t "a comprehensive inspection.~%"))
+      (progn
+        (format t "~%No specific problems could be identified.~%")
+        (format t "Consider consulting a professional mechanic for~%")
+        (format t "a comprehensive inspection.~%")))
   
   ;; Show session summary
   (format t "~%~%SESSION SUMMARY:~%")
@@ -370,7 +475,67 @@
 
 (defun quick-demo ()
   "Quick demonstration without full interface"
-  (demo-car-diagnosis))
+  (format t "~%=== QUICK DEMO: Testing Dead Battery Scenario ===~%")
+  (clear-facts)
+  (add-fact '(car does-not-start) 0.9)
+  (add-fact '(lights dim-or-off) 0.8)
+  (format t "Facts: Car won't start, lights are dim~%")
+  (let ((cf (prove-goal '(car-problem dead-battery))))
+    (format t "Dead battery diagnosis: CF = ~,2F~%" cf)
+    (if (certainty-true-p cf)
+        (format t "RESULT: Dead battery is LIKELY (~,1F% confidence)~%" (* cf 100))
+        (format t "RESULT: Dead battery is UNLIKELY~%"))))
+
+(defun demo-dead-battery ()
+  "Demonstrate dead battery diagnosis"
+  (format t "~%=== DEMO: Dead Battery Scenario ===~%")
+  (clear-facts)
+  (add-fact '(car does-not-start) 0.9)
+  (add-fact '(lights dim-or-off) 0.8)
+  (add-fact '(engine-cranks-slowly) 0.7)
+  (format t "Simulating: Car won't start, lights dim, slow cranking~%")
+  (let ((cf (prove-goal '(car-problem dead-battery))))
+    (format t "Result: Dead battery CF = ~,2F~%" cf)))
+
+(defun demo-brake-problems ()
+  "Demonstrate brake problems diagnosis"
+  (format t "~%=== DEMO: Brake Problems Scenario ===~%")
+  (clear-facts)
+  (add-fact '(brakes squealing) 0.8)
+  (add-fact '(brake-pedal soft) 0.7)
+  (format t "Simulating: Squealing brakes, soft pedal~%")
+  (let ((cf (prove-goal '(car-problem brake-problems))))
+    (format t "Result: Brake problems CF = ~,2F~%" cf)))
+
+(defun demo-overheating ()
+  "Demonstrate overheating diagnosis"
+  (format t "~%=== DEMO: Overheating Scenario ===~%")
+  (clear-facts)
+  (add-fact '(temperature-gauge high) 0.9)
+  (add-fact '(steam-from-engine) 0.8)
+  (format t "Simulating: High temperature, steam from engine~%")
+  (let ((cf (prove-goal '(car-problem overheating))))
+    (format t "Result: Overheating CF = ~,2F~%" cf)))
+
+(defun demo-mixed-symptoms ()
+  "Demonstrate mixed symptoms scenario"
+  (format t "~%=== DEMO: Mixed Symptoms Scenario ===~%")
+  (clear-facts)
+  (add-fact '(engine-rough-idle) 0.7)
+  (add-fact '(engine-hesitation) 0.6)
+  (add-fact '(poor-acceleration) 0.8)
+  (format t "Simulating: Rough idle, hesitation, poor acceleration~%")
+  (let ((cf (prove-goal '(car-problem engine-misfire))))
+    (format t "Result: Engine misfire CF = ~,2F~%" cf)))
+
+(defun run-demo-scenarios ()
+  "Run all demonstration scenarios"
+  (format t "~%=== RUNNING ALL DEMO SCENARIOS ===~%")
+  (demo-dead-battery)
+  (demo-brake-problems)
+  (demo-overheating)
+  (demo-mixed-symptoms)
+  (format t "~%=== ALL DEMOS COMPLETE ===~%"))
 
 ;; Initialize the system
 (format t "~%============================================================~%")

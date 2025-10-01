@@ -334,33 +334,3 @@
 (format t "~&Car diagnostic rules loaded successfully.~%")
 (format t "Use (diagnose-car-problem) to start a consultation.~%")
 (format t "Use (demo-car-diagnosis) for a quick demo.~%")
-      (when (ask-question "Are other electrical components acting strangely?")
-        (add-fact '(electrical-problems))))
-    
-    (when (ask-question "Are the headlights or dashboard lights dimmer than usual?")
-      (add-fact '(headlights dim))
-      (add-fact '(dashboard lights-dim)))
-    
-    (when (ask-question "Do you notice uneven tire wear?")
-      (add-fact '(uneven-tire-wear)))
-    
-    (when (ask-question "Does the steering wheel vibrate at highway speeds?")
-      (add-fact '(steering-wheel vibration))
-      (add-fact '(highway-speeds)))
-    
-    (when (ask-question "Is the air conditioning on but not cooling?")
-      (add-fact '(ac-on))
-      (add-fact '(air-not-cold)))))
-
-;; =============================================================================
-;; INITIALIZATION
-;; =============================================================================
-
-(defun load-car-knowledge-base ()
-  "Initialize the car troubleshooting knowledge base"
-  (format t "Car troubleshooting rules loaded successfully.~%")
-  (format t "Total rules in knowledge base: ~A~%" (length *rules*))
-  (format t "Ready for car diagnosis consultation.~%"))
-
-;; Load the knowledge base
-(load-car-knowledge-base)

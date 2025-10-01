@@ -145,11 +145,11 @@
   ;; Try to prove using rules
   (let ((max-cf 0))
     (dolist (rule *rules*)
-      (when (equal (rule-goal rule) goal)
+      (when (equal (eval (rule-goal rule)) goal)
         (when *trace-enabled*
           (format t "~&Trying rule: ~A~%" (rule-name rule)))
         
-        (let ((conditions-cf (prove-conditions (rule-conditions rule))))
+        (let ((conditions-cf (prove-conditions (eval (rule-conditions rule)))))
           (when (certainty-true-p conditions-cf)
             (let ((rule-cf (* conditions-cf (rule-cf rule))))
               (when *trace-enabled*
@@ -159,7 +159,7 @@
     ;; If no rules succeeded and we have a question, ask it
     (when (and (= max-cf 0) (not (fact-known-p goal)))
       (let ((question-rule (find-if (lambda (r) 
-                                      (and (equal (rule-goal r) goal)
+                                      (and (equal (eval (rule-goal r)) goal)
                                            (rule-question r)))
                                     *rules*)))
         (when question-rule
@@ -246,5 +246,56 @@
   (enable-trace)
   (format t "~&Demo: Proving that Socrates is mortal~%")
   (consult '(mortal socrates)))
+
+;; =============================================================================
+;; MISSING UTILITY FUNCTIONS
+;; =============================================================================
+
+(defun get-problem-description (problem)
+  "Get a human-readable description for a car problem"
+  (case problem
+    (dead-battery "Dead or weak battery")
+    (starter-failure "Starter motor failure")
+    (fuel-system "Fuel system problems")
+    (ignition-system "Ignition system issues")
+    (engine-misfire "Engine misfiring")
+    (overheating "Engine overheating")
+    (brake-problems "Brake system issues")
+    (otherwise (format nil "~A" problem))))
+
+(defun print-recommendations (problem)
+  "Print recommendations for a specific car problem"
+  (format t "  Recommendations for ~A:~%" (get-problem-description problem))
+  (case problem
+    (dead-battery
+     (format t "    • Test battery voltage and charge~%")
+     (format t "    • Check battery terminals for corrosion~%")
+     (format t "    • Consider battery replacement if old~%"))
+    (starter-failure
+     (format t "    • Have starter motor tested~%")
+     (format t "    • Check starter connections and solenoid~%")
+     (format t "    • Test starter relay~%"))
+    (fuel-system
+     (format t "    • Check fuel level and fuel pump~%")
+     (format t "    • Test fuel pressure and filter~%")
+     (format t "    • Inspect fuel injectors~%"))
+    (ignition-system
+     (format t "    • Check spark plugs and ignition coils~%")
+     (format t "    • Test ignition timing and wires~%")
+     (format t "    • Inspect distributor components~%"))
+    (engine-misfire
+     (format t "    • Check spark plugs, wires, and coils~%")
+     (format t "    • Clean fuel injectors~%")
+     (format t "    • Check for vacuum leaks~%"))
+    (overheating
+     (format t "    • 🚨 STOP DRIVING IMMEDIATELY~%")
+     (format t "    • Check coolant level and leaks~%")
+     (format t "    • Test radiator cap and water pump~%"))
+    (brake-problems
+     (format t "    • Check brake fluid level~%")
+     (format t "    • Inspect brake pads and rotors~%")
+     (format t "    • Test brake system pressure~%"))
+    (otherwise
+     (format t "    • Consult a professional mechanic~%"))))
 
 (format t "~&Backward chaining expert system loaded successfully.~%")
