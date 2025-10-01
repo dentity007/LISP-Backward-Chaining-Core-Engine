@@ -1,0 +1,11 @@
+{
+    "commonlisp.lispExecutablePath": "/usr/local/bin/sbcl",
+    "commonlisp.enableLSP": false,
+    "alive.lsp.executable": "sbcl",
+    "alive.lsp.remote": false,
+    "files.associations": {
+        "*.lisp": "lisp",
+        "*.lsp": "lisp",
+        "*.cl": "lisp"
+    }
+}
