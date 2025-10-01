@@ -1,277 +1,339 @@
-;; =============================================================================
-;; CAR-RULES.LISP
-;; Knowledge Base for Car Troubleshooting Expert System
-;; =============================================================================
+;;;; Car Diagnostic Rules for Backward Chaining Expert System
+;;;; Converted from forward chaining to goal-oriented reasoning with certainty factors
 
 ;; Load the expert system engine first
 (load "expert-system.lisp")
+(in-package :expert-system)
 
 ;; =============================================================================
-;; CAR STARTING PROBLEMS
+;; MAIN DIAGNOSTIC GOALS
 ;; =============================================================================
 
-(add-rule 'dead-battery-rule
-          '((car does-not-start) (lights dim-or-off))
-          '((diagnosis dead battery) 
-            (recommend "Check battery voltage and connections")
-            (recommend "Jump start or replace battery"))
-          "Car won't start and lights are dim - likely dead battery")
+;; Top-level car problems that can be diagnosed
+(define-rule car-problem-dead-battery
+  '(car-problem dead-battery)
+  '((car does-not-start) (lights dim-or-off))
+  0.9
+  "Are the headlights and dashboard lights dim or completely off?")
 
-(add-rule 'starter-problem-rule
-          '((car does-not-start) (lights work) (clicking-sound))
-          '((diagnosis faulty starter)
-            (recommend "Have starter motor tested")
-            (recommend "Check starter connections"))
-          "Car won't start but lights work with clicking sound")
+(define-rule car-problem-starter-failure
+  '(car-problem starter-failure)
+  '((car does-not-start) (lights work) (clicking-sound))
+  0.85
+  "Do you hear a clicking sound when you turn the key?")
 
-(add-rule 'fuel-problem-rule
-          '((car does-not-start) (engine turns-over) (no fuel-smell))
-          '((diagnosis fuel system problem)
-            (recommend "Check fuel level")
-            (recommend "Test fuel pump")
-            (recommend "Check fuel filter"))
-          "Engine turns over but won't start - possible fuel issue")
+(define-rule car-problem-fuel-system
+  '(car-problem fuel-system)
+  '((car does-not-start) (engine turns-over) (no-fuel-smell))
+  0.8
+  "Can you smell gasoline when trying to start?")
 
-(add-rule 'ignition-problem-rule
-          '((car does-not-start) (engine turns-over) (no spark))
-          '((diagnosis ignition system problem)
-            (recommend "Check spark plugs")
-            (recommend "Test ignition coils")
-            (recommend "Check distributor cap and rotor"))
-          "Engine turns over but no spark")
+(define-rule car-problem-ignition-system
+  '(car-problem ignition-system)
+  '((car does-not-start) (engine turns-over) (no-spark))
+  0.8
+  "Have you checked if there's spark at the plugs?")
 
-;; =============================================================================
-;; ENGINE PERFORMANCE PROBLEMS
-;; =============================================================================
+(define-rule car-problem-engine-misfire
+  '(car-problem engine-misfire)
+  '((car starts) (engine rough-idle))
+  0.75
+  "Does the engine run roughly or shake when idling?")
 
-(add-rule 'rough-idle-rule
-          '((car starts) (engine rough-idle))
-          '((diagnosis engine misfire)
-            (recommend "Check spark plugs and wires")
-            (recommend "Clean fuel injectors")
-            (recommend "Check vacuum leaks"))
-          "Engine runs but idles roughly")
+(define-rule car-problem-overheating
+  '(car-problem overheating)
+  '((engine running) (temperature high) (coolant low))
+  0.95
+  "Is the temperature gauge reading high and coolant level low?")
 
-(add-rule 'overheating-rule
-          '((engine running) (temperature high) (coolant low))
-          '((diagnosis cooling system problem)
-            (recommend "Check for coolant leaks")
-            (recommend "Test radiator cap")
-            (recommend "Inspect water pump")
-            (recommend "STOP DRIVING - ENGINE DAMAGE RISK"))
-          "Engine is overheating")
+(define-rule car-problem-low-oil-pressure
+  '(car-problem low-oil-pressure)
+  '((engine running) (oil-pressure-light on))
+  0.9
+  "Is the oil pressure warning light on?")
 
-(add-rule 'oil-pressure-rule
-          '((engine running) (oil-pressure-light on))
-          '((diagnosis low oil pressure)
-            (recommend "Check oil level immediately")
-            (recommend "STOP DRIVING - ENGINE DAMAGE RISK")
-            (recommend "Have oil pump tested"))
-          "Oil pressure warning light is on")
+(define-rule car-problem-transmission-slip
+  '(car-problem transmission-slip)
+  '((car starts) (engine revs-high) (acceleration poor))
+  0.8
+  "Does the engine rev high but the car doesn't accelerate properly?")
 
-(add-rule 'check-engine-light-rule
-          '((dashboard warning-lights) (check-engine-light on))
-          '((diagnosis emissions or engine control problem)
-            (recommend "Get OBD-II diagnostic scan")
-            (recommend "Check gas cap")
-            (recommend "Inspect air filter"))
-          "Check engine light is illuminated")
+(define-rule car-problem-brake-system
+  '(car-problem brake-system)
+  '((brake-warning-light on))
+  0.95
+  "Is the brake warning light on?")
+
+(define-rule car-problem-charging-system
+  '(car-problem charging-system)
+  '((car starts) (battery-light on) (electrical-problems))
+  0.85
+  "Is the battery warning light on while driving?")
 
 ;; =============================================================================
-;; TRANSMISSION PROBLEMS
+;; SYMPTOM IDENTIFICATION RULES
 ;; =============================================================================
 
-(add-rule 'transmission-slip-rule
-          '((car starts) (engine revs-high) (acceleration poor))
-          '((diagnosis transmission slipping)
-            (recommend "Check transmission fluid level")
-            (recommend "Inspect for fluid leaks")
-            (recommend "Have transmission serviced"))
-          "Engine revs but car doesn't accelerate properly")
+;; Car starting symptoms
+(define-rule symptom-car-does-not-start
+  '(car does-not-start)
+  '()
+  1.0
+  "Does your car start when you turn the key?")
 
-(add-rule 'hard-shifting-rule
-          '((manual-transmission) (difficult shifting))
-          '((diagnosis clutch or transmission problem)
-            (recommend "Check clutch fluid level")
-            (recommend "Test clutch operation")
-            (recommend "Check transmission oil"))
-          "Manual transmission is hard to shift")
+(define-rule symptom-car-starts
+  '(car starts)
+  '()
+  1.0
+  "Does your car start normally?")
 
-;; =============================================================================
-;; BRAKE PROBLEMS
-;; =============================================================================
+(define-rule symptom-lights-work
+  '(lights work)
+  '()
+  1.0
+  "Do the headlights and dashboard lights work normally?")
 
-(add-rule 'brake-warning-rule
-          '((brake-warning-light on))
-          '((diagnosis brake system problem)
-            (recommend "Check brake fluid level")
-            (recommend "Inspect brake pads")
-            (recommend "DO NOT DRIVE - SAFETY RISK")
-            (recommend "Have brakes inspected immediately"))
-          "Brake warning light indicates serious safety issue")
+(define-rule symptom-lights-dim-or-off
+  '(lights dim-or-off)
+  '()
+  1.0
+  "Are the headlights and dashboard lights dim or completely off?")
 
-(add-rule 'squealing-brakes-rule
-          '((braking) (squealing-noise))
-          '((diagnosis worn brake pads)
-            (recommend "Inspect brake pads")
-            (recommend "Replace brake pads if thin")
-            (recommend "Check brake rotors"))
-          "Brakes are squealing when applied")
+(define-rule symptom-engine-turns-over
+  '(engine turns-over)
+  '()
+  1.0
+  "Does the engine turn over (crank) when you try to start it?")
 
-(add-rule 'soft-brake-pedal-rule
-          '((brake-pedal soft) (pedal-goes-to-floor))
-          '((diagnosis brake fluid leak or air in system)
-            (recommend "DO NOT DRIVE - SAFETY RISK")
-            (recommend "Check for brake fluid leaks")
-            (recommend "Have brake system bled"))
-          "Brake pedal feels soft or goes to floor")
+(define-rule symptom-clicking-sound
+  '(clicking-sound)
+  '()
+  1.0
+  "Do you hear a clicking sound when you turn the key?")
 
-;; =============================================================================
-;; ELECTRICAL PROBLEMS
-;; =============================================================================
+(define-rule symptom-no-fuel-smell
+  '(no-fuel-smell)
+  '()
+  1.0
+  "Have you recently run low on gas or notice no fuel smell?")
 
-(add-rule 'alternator-problem-rule
-          '((car starts) (battery-light on) (electrical-problems))
-          '((diagnosis charging system failure)
-            (recommend "Test alternator output")
-            (recommend "Check drive belt")
-            (recommend "Inspect battery connections"))
-          "Battery light on while driving indicates charging problem")
+(define-rule symptom-no-spark
+  '(no-spark)
+  '()
+  1.0
+  "Have you checked if there's spark at the spark plugs?")
 
-(add-rule 'headlight-problem-rule
-          '((headlights dim) (dashboard lights-dim))
-          '((diagnosis electrical system problem)
-            (recommend "Test battery and alternator")
-            (recommend "Check all electrical connections")
-            (recommend "Inspect wiring harness"))
-          "Multiple electrical components are dim or failing")
+;; Engine running symptoms
+(define-rule symptom-engine-running
+  '(engine running)
+  '((car starts))
+  0.9)
 
-;; =============================================================================
-;; TIRE AND SUSPENSION PROBLEMS
-;; =============================================================================
+(define-rule symptom-engine-rough-idle
+  '(engine rough-idle)
+  '()
+  1.0
+  "Does the engine run roughly, shake, or idle unevenly?")
 
-(add-rule 'tire-wear-rule
-          '((uneven-tire-wear))
-          '((diagnosis alignment or suspension problem)
-            (recommend "Check tire pressure")
-            (recommend "Have wheel alignment checked")
-            (recommend "Inspect suspension components"))
-          "Uneven tire wear indicates alignment issues")
+(define-rule symptom-temperature-high
+  '(temperature high)
+  '()
+  1.0
+  "Is the temperature gauge reading high or in the red zone?")
 
-(add-rule 'vibration-rule
-          '((steering-wheel vibration) (highway-speeds))
-          '((diagnosis wheel balance or alignment problem)
-            (recommend "Have wheels balanced")
-            (recommend "Check tire condition")
-            (recommend "Inspect suspension"))
-          "Steering wheel vibrates at highway speeds")
+(define-rule symptom-coolant-low
+  '(coolant low)
+  '()
+  1.0
+  "Is the coolant level low in the reservoir?")
 
-;; =============================================================================
-;; AIR CONDITIONING PROBLEMS
-;; =============================================================================
+(define-rule symptom-oil-pressure-light-on
+  '(oil-pressure-light on)
+  '()
+  1.0
+  "Is the oil pressure warning light illuminated?")
 
-(add-rule 'ac-not-cooling-rule
-          '((ac-on) (air-not-cold))
-          '((diagnosis air conditioning problem)
-            (recommend "Check refrigerant level")
-            (recommend "Inspect AC compressor")
-            (recommend "Check AC belt"))
-          "Air conditioning is not cooling properly")
+(define-rule symptom-engine-revs-high
+  '(engine revs-high)
+  '()
+  1.0
+  "Does the engine rev high when you press the accelerator?")
 
-;; =============================================================================
-;; DIAGNOSTIC HELPER RULES
-;; =============================================================================
+(define-rule symptom-acceleration-poor
+  '(acceleration poor)
+  '()
+  1.0
+  "Does the car accelerate poorly despite engine revving?")
 
-(add-rule 'gather-more-info-rule
-          '((car does-not-start))
-          '((need-info lights-work)
-            (need-info engine-turns-over)
-            (need-info clicking-sound)
-            (need-info fuel-smell))
-          "Need more information about starting problem")
+;; Brake symptoms
+(define-rule symptom-brake-warning-light-on
+  '(brake-warning-light on)
+  '()
+  1.0
+  "Is the brake warning light on your dashboard illuminated?")
 
-(add-rule 'engine-performance-info-rule
-          '((car starts) (engine unusual-noises))
-          '((need-info rough-idle)
-            (need-info temperature-gauge)
-            (need-info oil-pressure)
-            (need-info engine-noise-type))
-          "Need more details about engine performance")
+;; Electrical symptoms
+(define-rule symptom-battery-light-on
+  '(battery-light on)
+  '()
+  1.0
+  "Is the battery warning light on while driving?")
+
+(define-rule symptom-electrical-problems
+  '(electrical-problems)
+  '()
+  1.0
+  "Are other electrical components (radio, lights, etc.) acting strangely?")
 
 ;; =============================================================================
-;; INTERACTIVE QUESTIONING RULES
+;; CONSULTATION FUNCTIONS
 ;; =============================================================================
 
-(defun ask-detailed-questions ()
-  "Ask follow-up questions based on initial symptoms"
+(defun diagnose-car-problem ()
+  "Start a car diagnostic consultation"
+  (clear-session)
+  (format t "~&=== CAR DIAGNOSTIC EXPERT SYSTEM ===~%")
+  (format t "I'll help you diagnose your car problem.~%")
+  (format t "Please answer the questions as accurately as possible.~%~%")
   
-  ;; If car doesn't start, get more details
-  (when (fact-exists-p '(car does-not-start))
-    (when (ask-question "Do the headlights and dashboard lights work normally?")
-      (add-fact '(lights work)))
+  ;; Try to diagnose main problems
+  (let ((problems '((car-problem dead-battery)
+                   (car-problem starter-failure)
+                   (car-problem fuel-system)
+                   (car-problem ignition-system)
+                   (car-problem engine-misfire)
+                   (car-problem overheating)
+                   (car-problem low-oil-pressure)
+                   (car-problem transmission-slip)
+                   (car-problem brake-system)
+                   (car-problem charging-system)))
+        (found-problems nil))
     
-    (unless (fact-exists-p '(lights work))
-      (add-fact '(lights dim-or-off)))
+    (dolist (problem problems)
+      (let ((cf (prove-goal problem)))
+        (when (certainty-true-p cf)
+          (push (list problem cf) found-problems))))
     
-    (when (and (fact-exists-p '(lights work))
-               (ask-question "Does the engine turn over when you try to start it?"))
-      (add-fact '(engine turns-over)))
+    ;; Display results
+    (format t "~&~%=== DIAGNOSTIC RESULTS ===~%")
+    (if found-problems
+        (progn
+          (format t "Likely problems found:~%")
+          (dolist (problem-cf found-problems)
+            (let ((problem (first problem-cf))
+                  (cf (second problem-cf)))
+              (format t "  • ~A (confidence: ~,1F%)~%" 
+                      (get-problem-description problem) (* cf 100))))
+          
+          (format t "~%=== RECOMMENDATIONS ===~%")
+          (dolist (problem-cf found-problems)
+            (let ((problem (first problem-cf)))
+              (format t "~%For ~A:~%" (get-problem-description problem))
+              (print-recommendations problem))))
+        (format t "No specific problems could be identified with sufficient confidence.~%"))
     
-    (when (and (fact-exists-p '(lights work))
-               (not (fact-exists-p '(engine turns-over)))
-               (ask-question "Do you hear a clicking sound when you turn the key?"))
-      (add-fact '(clicking-sound)))
+    found-problems))
+
+(defun get-problem-description (problem)
+  "Get human-readable description for a problem"
+  (case (second problem)
+    (dead-battery "Dead Battery")
+    (starter-failure "Starter Motor Failure")
+    (fuel-system "Fuel System Problem")
+    (ignition-system "Ignition System Problem")
+    (engine-misfire "Engine Misfire")
+    (overheating "Engine Overheating")
+    (low-oil-pressure "Low Oil Pressure")
+    (transmission-slip "Transmission Slipping")
+    (brake-system "Brake System Problem")
+    (charging-system "Charging System Problem")
+    (t "Unknown Problem")))
+
+(defun print-recommendations (problem)
+  "Print recommendations for a specific problem"
+  (case (second problem)
+    (dead-battery 
+     (format t "  - Check battery voltage and connections~%")
+     (format t "  - Jump start or replace battery~%")
+     (format t "  - Have charging system tested~%"))
     
-    (when (and (fact-exists-p '(engine turns-over))
-               (ask-question "Can you smell fuel/gasoline?"))
-      (add-fact '(fuel-smell)))
+    (starter-failure
+     (format t "  - Have starter motor tested~%")
+     (format t "  - Check starter connections~%")
+     (format t "  - Test starter solenoid~%"))
     
-    (when (and (fact-exists-p '(engine turns-over))
-               (not (fact-exists-p '(fuel-smell)))
-               (ask-question "Have you recently run low on gas?"))
-      (add-fact '(no fuel-smell))))
+    (fuel-system
+     (format t "  - Check fuel level~%")
+     (format t "  - Test fuel pump~%")
+     (format t "  - Check fuel filter~%")
+     (format t "  - Inspect fuel injectors~%"))
+    
+    (ignition-system
+     (format t "  - Check spark plugs~%")
+     (format t "  - Test ignition coils~%")
+     (format t "  - Check distributor cap and rotor~%")
+     (format t "  - Test ignition timing~%"))
+    
+    (engine-misfire
+     (format t "  - Check spark plugs and wires~%")
+     (format t "  - Clean fuel injectors~%")
+     (format t "  - Check for vacuum leaks~%")
+     (format t "  - Test compression~%"))
+    
+    (overheating
+     (format t "  - STOP DRIVING IMMEDIATELY - ENGINE DAMAGE RISK~%")
+     (format t "  - Check for coolant leaks~%")
+     (format t "  - Test radiator cap~%")
+     (format t "  - Inspect water pump~%"))
+    
+    (low-oil-pressure
+     (format t "  - STOP DRIVING IMMEDIATELY - ENGINE DAMAGE RISK~%")
+     (format t "  - Check oil level~%")
+     (format t "  - Have oil pump tested~%")
+     (format t "  - Check for oil leaks~%"))
+    
+    (transmission-slip
+     (format t "  - Check transmission fluid level~%")
+     (format t "  - Inspect for fluid leaks~%")
+     (format t "  - Have transmission serviced~%")
+     (format t "  - Test transmission bands/clutches~%"))
+    
+    (brake-system
+     (format t "  - DO NOT DRIVE - SAFETY RISK~%")
+     (format t "  - Check brake fluid level~%")
+     (format t "  - Inspect brake pads~%")
+     (format t "  - Have brakes inspected immediately~%"))
+    
+    (charging-system
+     (format t "  - Test alternator output~%")
+     (format t "  - Check drive belt~%")
+     (format t "  - Inspect battery connections~%")
+     (format t "  - Test voltage regulator~%"))))
+
+;; =============================================================================
+;; DEMO FUNCTION
+;; =============================================================================
+
+(defun demo-car-diagnosis ()
+  "Quick demonstration of car diagnosis"
+  (format t "~&=== CAR DIAGNOSIS DEMO ===~%")
+  (format t "This demo will show backward chaining diagnosis.~%~%")
   
-  ;; If car starts but has problems
-  (when (fact-exists-p '(car starts))
-    (when (ask-question "Does the engine idle roughly or shake?")
-      (add-fact '(engine rough-idle)))
-    
-    (when (ask-question "Is the temperature gauge reading high or red?")
-      (add-fact '(temperature high)))
-    
-    (when (ask-question "Is the coolant level low?")
-      (add-fact '(coolant low)))
-    
-    (when (ask-question "Is the oil pressure warning light on?")
-      (add-fact '(oil-pressure-light on)))
-    
-    (when (ask-question "Is the check engine light on?")
-      (add-fact '(check-engine-light on)))
-    
-    (when (ask-question "Is the brake warning light on?")
-      (add-fact '(brake-warning-light on)))
-    
-    (when (ask-question "Does the engine rev high but the car accelerate poorly?")
-      (add-fact '(engine revs-high))
-      (add-fact '(acceleration poor)))
-    
-    (when (ask-question "Do you have a manual transmission?")
-      (add-fact '(manual-transmission)))
-    
-    (when (and (fact-exists-p '(manual-transmission))
-               (ask-question "Is it difficult to shift gears?"))
-      (add-fact '(difficult shifting)))
-    
-    (when (ask-question "Do the brakes squeal when you apply them?")
-      (add-fact '(braking))
-      (add-fact '(squealing-noise)))
-    
-    (when (ask-question "Does the brake pedal feel soft or go to the floor?")
-      (add-fact '(brake-pedal soft))
-      (add-fact '(pedal-goes-to-floor)))
-    
-    (when (ask-question "Is the battery warning light on while driving?")
-      (add-fact '(battery-light on))
+  (enable-trace)
+  (clear-session)
+  
+  ;; Simulate a dead battery scenario
+  (add-fact '(car does-not-start) 0.9)
+  (add-fact '(lights dim-or-off) 0.8)
+  
+  (format t "Simulating: Car won't start, lights are dim~%")
+  (let ((cf (prove-goal '(car-problem dead-battery))))
+    (format t "~%Result: Dead battery diagnosis with CF: ~,2F~%" cf)))
+
+;; Initialize the car diagnostic system
+(format t "~&Car diagnostic rules loaded successfully.~%")
+(format t "Use (diagnose-car-problem) to start a consultation.~%")
+(format t "Use (demo-car-diagnosis) for a quick demo.~%")
       (when (ask-question "Are other electrical components acting strangely?")
         (add-fact '(electrical-problems))))
     

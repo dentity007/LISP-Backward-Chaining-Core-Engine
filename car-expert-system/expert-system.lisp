@@ -1,288 +1,250 @@
-;; =============================================================================
-;; EXPERT-SYSTEM.LISP
-;; Core Expert System Engine for Car Troubleshooting
-;; =============================================================================
+;;;; Backward Chaining Expert System with Certainty Factors
+;;;; Based on MYCIN-style reasoning with uncertainty handling
 
-;; Global variables for the expert system
-(defvar *facts* nil "Current facts in the knowledge base")
-(defvar *rules* nil "Rules in the knowledge base")
-(defvar *trace-mode* nil "Enable tracing of inference process")
+;;; Package definition
+(defpackage :expert-system
+  (:use :common-lisp)
+  (:export #:define-rule
+           #:ask-question
+           #:consult
+           #:clear-session
+           #:show-facts
+           #:enable-trace
+           #:disable-trace
+           #:*certainty-threshold*))
 
-;; =============================================================================
-;; FACT MANAGEMENT
-;; =============================================================================
+(in-package :expert-system)
 
-(defun add-fact (fact)
-  "Add a fact to the knowledge base"
-  (unless (member fact *facts* :test #'equal)
-    (push fact *facts*)
-    (when *trace-mode*
-      (format t "Added fact: ~A~%" fact)))
-  fact)
+;;; Global variables
+(defvar *facts* (make-hash-table :test 'equal)
+  "Hash table storing facts and their certainty factors")
 
-(defun remove-fact (fact)
-  "Remove a fact from the knowledge base"
-  (setf *facts* (remove fact *facts* :test #'equal))
-  (when *trace-mode*
-    (format t "Removed fact: ~A~%" fact)))
+(defvar *rules* nil
+  "List of rules in the expert system")
 
-(defun fact-exists-p (fact)
-  "Check if a fact exists in the knowledge base"
-  (member fact *facts* :test #'equal))
+(defvar *asked-questions* (make-hash-table :test 'equal)
+  "Hash table tracking which questions have been asked")
+
+(defvar *trace-enabled* nil
+  "Enable tracing of inference process")
+
+(defvar *certainty-threshold* 0.2
+  "Minimum certainty factor for a fact to be considered true")
+
+;;; Certainty factor operations
+(defun combine-certainty (cf1 cf2)
+  "Combine two certainty factors using MYCIN's formula"
+  (cond
+    ((and (>= cf1 0) (>= cf2 0))
+     (+ cf1 cf2 (* -1 cf1 cf2)))
+    ((and (< cf1 0) (< cf2 0))
+     (+ cf1 cf2 (* cf1 cf2)))
+    (t
+     (/ (+ cf1 cf2)
+        (- 1 (min (abs cf1) (abs cf2)))))))
+
+(defun certainty-true-p (cf)
+  "Check if certainty factor indicates truth"
+  (>= cf *certainty-threshold*))
+
+(defun certainty-false-p (cf)
+  "Check if certainty factor indicates falsehood"
+  (<= cf (- *certainty-threshold*)))
+
+;;; Fact management
+(defun add-fact (fact cf)
+  "Add or update a fact with its certainty factor"
+  (let ((existing-cf (gethash fact *facts* 0)))
+    (setf (gethash fact *facts*) 
+          (combine-certainty existing-cf cf))
+    (when *trace-enabled*
+      (format t "~&Added fact: ~A with CF: ~,2F~%" fact (gethash fact *facts*)))
+    (gethash fact *facts*)))
+
+(defun get-fact-cf (fact)
+  "Get the certainty factor for a fact"
+  (gethash fact *facts* 0))
+
+(defun fact-known-p (fact)
+  "Check if a fact is known (has been assigned a certainty factor)"
+  (multiple-value-bind (value exists-p)
+      (gethash fact *facts*)
+    (declare (ignore value))
+    exists-p))
 
 (defun clear-facts ()
-  "Clear all facts from the knowledge base"
-  (setf *facts* nil))
+  "Clear all facts and asked questions"
+  (clrhash *facts*)
+  (clrhash *asked-questions*)
+  (when *trace-enabled*
+    (format t "~&Cleared all facts and questions~%")))
 
-(defun show-facts ()
-  "Display all current facts"
-  (format t "~%Current Facts:~%")
-  (if *facts*
-      (dolist (fact *facts*)
-        (format t "  - ~A~%" fact))
-      (format t "  (no facts)~%")))
-
-;; =============================================================================
-;; RULE MANAGEMENT
-;; =============================================================================
-
+;;; Rule structure and management
 (defstruct rule
-  name          ; Rule identifier
-  conditions    ; List of conditions (facts that must be true)
-  actions       ; List of actions (facts to add when rule fires)
-  description   ; Human-readable description
-  fired)        ; Flag to track if rule has been used
+  name
+  goal
+  conditions
+  cf
+  question)
 
-(defun add-rule (name conditions actions &optional description)
-  "Add a rule to the knowledge base"
-  (let ((new-rule (make-rule :name name
-                            :conditions conditions
-                            :actions actions
-                            :description description
-                            :fired nil)))
-    (setf *rules* (remove name *rules* :key #'rule-name :test #'equal))
-    (push new-rule *rules*)
-    (when *trace-mode*
-      (format t "Added rule: ~A~%" name))
-    new-rule))
-
-(defun find-rule (name)
-  "Find a rule by name"
-  (find name *rules* :key #'rule-name :test #'equal))
+(defmacro define-rule (name goal conditions cf &optional question)
+  "Define a rule for backward chaining"
+  `(progn
+     (setf *rules* (remove ',name *rules* :key #'rule-name))
+     (push (make-rule :name ',name
+                      :goal ',goal
+                      :conditions ',conditions
+                      :cf ,cf
+                      :question ,question)
+           *rules*)
+     ',name))
 
 (defun clear-rules ()
-  "Clear all rules and reset fired flags"
+  "Clear all rules"
   (setf *rules* nil))
 
-(defun reset-rules ()
-  "Reset all rule fired flags"
-  (dolist (rule *rules*)
-    (setf (rule-fired rule) nil)))
+;;; Question asking mechanism
+(defun ask-question (fact question)
+  "Ask a question about a fact and store the answer"
+  (when (gethash fact *asked-questions*)
+    (return-from ask-question (get-fact-cf fact)))
+  
+  (setf (gethash fact *asked-questions*) t)
+  
+  (format t "~&~A~%" question)
+  (format t "Enter certainty (-1 to 1, or y/n for 0.8/-0.8): ")
+  (force-output)
+  
+  (let ((input (string-trim " " (read-line))))
+    (cond
+      ((string-equal input "y") (add-fact fact 0.8))
+      ((string-equal input "yes") (add-fact fact 0.8))
+      ((string-equal input "n") (add-fact fact -0.8))
+      ((string-equal input "no") (add-fact fact -0.8))
+      ((string-equal input "u") (add-fact fact 0))
+      ((string-equal input "unknown") (add-fact fact 0))
+      (t (let ((cf (ignore-errors (read-from-string input))))
+           (if (and cf (numberp cf) (>= cf -1) (<= cf 1))
+               (add-fact fact cf)
+               (progn
+                 (format t "Invalid input. Using 0 (unknown).~%")
+                 (add-fact fact 0))))))))
 
-(defun show-rules ()
-  "Display all rules"
-  (format t "~%Rules in Knowledge Base:~%")
-  (if *rules*
-      (dolist (rule *rules*)
-        (format t "  ~A: ~A~%" 
-                (rule-name rule)
-                (or (rule-description rule) "No description")))
-      (format t "  (no rules)~%")))
-
-;; =============================================================================
-;; PATTERN MATCHING
-;; =============================================================================
-
-(defun pattern-match (pattern fact)
-  "Match a pattern against a fact, allowing for variables"
-  (cond
-    ((and (null pattern) (null fact)) t)
-    ((or (null pattern) (null fact)) nil)
-    ((eql pattern fact) t)
-    ((and (listp pattern) (listp fact))
-     (and (pattern-match (first pattern) (first fact))
-          (pattern-match (rest pattern) (rest fact))))
-    ((and (symbolp pattern) 
-          (char= (char (symbol-name pattern) 0) #\?))
-     t) ; Variable matches anything
-    (t nil)))
-
-(defun conditions-satisfied-p (conditions)
-  "Check if all conditions in a list are satisfied"
-  (every (lambda (condition)
-           (some (lambda (fact)
-                   (pattern-match condition fact))
-                 *facts*))
-         conditions))
-
-;; =============================================================================
-;; INFERENCE ENGINE
-;; =============================================================================
-
-(defun fire-rule (rule)
-  "Execute a rule by adding its actions as facts"
-  (when *trace-mode*
-    (format t "Firing rule: ~A~%" (rule-name rule)))
-  (dolist (action (rule-actions rule))
-    (add-fact action))
-  (setf (rule-fired rule) t))
-
-(defun find-applicable-rules ()
-  "Find all rules whose conditions are satisfied and haven't fired"
-  (remove-if (lambda (rule)
-               (or (rule-fired rule)
-                   (not (conditions-satisfied-p (rule-conditions rule)))))
-             *rules*))
-
-(defun forward-chain ()
-  "Perform forward chaining inference"
-  (let ((iteration 0)
-        (max-iterations 50))
-    (when *trace-mode*
-      (format t "~%Starting forward chaining...~%"))
-    
-    (loop
-      (let ((applicable-rules (find-applicable-rules)))
-        (incf iteration)
+;;; Backward chaining inference
+(defun prove-goal (goal)
+  "Attempt to prove a goal using backward chaining"
+  (when *trace-enabled*
+    (format t "~&Trying to prove: ~A~%" goal))
+  
+  ;; If fact is already known, return its certainty factor
+  (when (fact-known-p goal)
+    (when *trace-enabled*
+      (format t "~&Goal ~A already known with CF: ~,2F~%" goal (get-fact-cf goal)))
+    (return-from prove-goal (get-fact-cf goal)))
+  
+  ;; Try to prove using rules
+  (let ((max-cf 0))
+    (dolist (rule *rules*)
+      (when (equal (rule-goal rule) goal)
+        (when *trace-enabled*
+          (format t "~&Trying rule: ~A~%" (rule-name rule)))
         
-        (when *trace-mode*
-          (format t "~%Iteration ~A: Found ~A applicable rule(s)~%" 
-                  iteration (length applicable-rules)))
-        
-        (if (or (null applicable-rules) 
-                (> iteration max-iterations))
-            (return)
-            (dolist (rule applicable-rules)
-              (fire-rule rule)))))
+        (let ((conditions-cf (prove-conditions (rule-conditions rule))))
+          (when (certainty-true-p conditions-cf)
+            (let ((rule-cf (* conditions-cf (rule-cf rule))))
+              (when *trace-enabled*
+                (format t "~&Rule ~A succeeded with CF: ~,2F~%" (rule-name rule) rule-cf))
+              (setf max-cf (combine-certainty max-cf rule-cf)))))))
     
-    (when *trace-mode*
-      (format t "Forward chaining completed after ~A iterations.~%" iteration))))
+    ;; If no rules succeeded and we have a question, ask it
+    (when (and (= max-cf 0) (not (fact-known-p goal)))
+      (let ((question-rule (find-if (lambda (r) 
+                                      (and (equal (rule-goal r) goal)
+                                           (rule-question r)))
+                                    *rules*)))
+        (when question-rule
+          (setf max-cf (ask-question goal (rule-question question-rule))))))
+    
+    ;; Store the result
+    (when (> (abs max-cf) 0)
+      (add-fact goal max-cf))
+    
+    max-cf))
 
-;; =============================================================================
-;; USER INTERACTION
-;; =============================================================================
+(defun prove-conditions (conditions)
+  "Prove all conditions and return minimum certainty factor"
+  (if (null conditions)
+      1.0
+      (let ((min-cf 1.0))
+        (dolist (condition conditions)
+          (let ((cf (prove-goal condition)))
+            (when *trace-enabled*
+              (format t "~&Condition ~A has CF: ~,2F~%" condition cf))
+            (setf min-cf (min min-cf cf))))
+        min-cf)))
 
-(defun ask-question (question &optional (type 'yes-no))
-  "Ask the user a question and return the response"
-  (format t "~%~A " question)
-  (case type
-    (yes-no
-     (format t "(yes/no): ")
-     (let ((response (read-line)))
-       (member (string-downcase (string-trim " " response))
-               '("yes" "y" "true" "1") :test #'string=)))
-    (choice
-     (format t "Enter your choice: ")
-     (string-trim " " (read-line)))
-    (otherwise
-     (read-line))))
+;;; Main consultation interface
+(defun consult (goal)
+  "Start a consultation to prove a goal"
+  (format t "~&Starting consultation for: ~A~%" goal)
+  (let ((cf (prove-goal goal)))
+    (format t "~&~%Consultation complete.~%")
+    (format t "Goal: ~A~%" goal)
+    (format t "Certainty Factor: ~,2F~%" cf)
+    (cond
+      ((certainty-true-p cf)
+       (format t "Conclusion: TRUE (confidence: ~,1F%)~%" (* cf 100)))
+      ((certainty-false-p cf)
+       (format t "Conclusion: FALSE (confidence: ~,1F%)~%" (* (abs cf) 100)))
+      (t
+       (format t "Conclusion: UNKNOWN (insufficient evidence)~%")))
+    cf))
 
-(defun get-user-input (prompt)
-  "Get text input from user"
-  (format t "~A: " prompt)
-  (string-trim " " (read-line)))
+(defun clear-session ()
+  "Clear facts and asked questions for a new consultation"
+  (clear-facts)
+  (when *trace-enabled*
+    (format t "~&Session cleared. Ready for new consultation.~%")))
 
-;; =============================================================================
-;; DEBUGGING AND UTILITIES
-;; =============================================================================
+;;; Utility functions
+(defun show-facts ()
+  "Display all current facts and their certainty factors"
+  (format t "~&Current facts:~%")
+  (maphash (lambda (fact cf)
+             (format t "  ~A: ~,2F~%" fact cf))
+           *facts*)
+  (format t "~&Total: ~A facts~%" (hash-table-count *facts*)))
 
 (defun enable-trace ()
-  "Enable tracing mode"
-  (setf *trace-mode* t)
-  (format t "Tracing enabled.~%"))
+  "Enable tracing of inference process"
+  (setf *trace-enabled* t)
+  (format t "~&Tracing enabled~%"))
 
 (defun disable-trace ()
-  "Disable tracing mode"
-  (setf *trace-mode* nil)
-  (format t "Tracing disabled.~%"))
+  "Disable tracing of inference process"
+  (setf *trace-enabled* nil)
+  (format t "~&Tracing disabled~%"))
 
-(defun system-status ()
-  "Display current system status"
-  (format t "~%=== EXPERT SYSTEM STATUS ===~%")
-  (format t "Facts: ~A~%" (length *facts*))
-  (format t "Rules: ~A~%" (length *rules*))
-  (format t "Tracing: ~A~%" (if *trace-mode* "ON" "OFF"))
-  (show-facts)
-  (show-rules))
+;;; Demo function
+(defun demo-backward-chaining ()
+  "Demonstrate backward chaining with simple rules"
+  (clear-session)
+  (clear-rules)
+  
+  ;; Define some simple rules
+  (define-rule mortal-rule
+    '(mortal ?x)
+    '((human ?x))
+    0.9)
+  
+  (define-rule human-rule
+    '(human socrates)
+    '()
+    1.0
+    "Is Socrates human? (y/n)")
+  
+  (enable-trace)
+  (format t "~&Demo: Proving that Socrates is mortal~%")
+  (consult '(mortal socrates)))
 
-(defun reset-system ()
-  "Reset the entire expert system"
-  (clear-facts)
-  (reset-rules)
-  (format t "Expert system reset.~%"))
-
-;; =============================================================================
-;; CONSULTATION ENGINE
-;; =============================================================================
-
-(defun start-consultation ()
-  "Start an expert system consultation"
-  (format t "~%=== CAR TROUBLESHOOTING EXPERT SYSTEM ===~%")
-  (format t "I'll help you diagnose car problems.~%")
-  (format t "Please answer the questions honestly.~%")
-  
-  (reset-system)
-  (gather-initial-symptoms)
-  (forward-chain)
-  (provide-diagnosis))
-
-(defun gather-initial-symptoms ()
-  "Collect initial symptoms from the user"
-  (format t "~%Let's start with some basic questions:~%")
-  
-  ;; Car starts
-  (when (ask-question "Does your car start?")
-    (add-fact '(car starts)))
-  
-  (unless (fact-exists-p '(car starts))
-    (add-fact '(car does-not-start)))
-  
-  ;; Engine running
-  (when (and (fact-exists-p '(car starts))
-             (ask-question "Does the engine run smoothly?"))
-    (add-fact '(engine runs-smoothly)))
-  
-  (when (and (fact-exists-p '(car starts))
-             (not (fact-exists-p '(engine runs-smoothly)))
-             (ask-question "Does the engine make unusual noises?"))
-    (add-fact '(engine unusual-noises)))
-  
-  ;; Dashboard lights
-  (when (ask-question "Are there any warning lights on the dashboard?")
-    (add-fact '(dashboard warning-lights)))
-  
-  ;; Recent maintenance
-  (when (ask-question "Has the car had recent maintenance or repairs?")
-    (add-fact '(recent maintenance))))
-
-(defun provide-diagnosis ()
-  "Provide diagnosis based on current facts"
-  (format t "~%=== DIAGNOSIS ===~%")
-  
-  (let ((diagnoses (remove-if-not 
-                    (lambda (fact) 
-                      (and (listp fact) 
-                           (eq (first fact) 'diagnosis)))
-                    *facts*)))
-    
-    (if diagnoses
-        (progn
-          (format t "Based on the symptoms, possible issues include:~%")
-          (dolist (diagnosis diagnoses)
-            (format t "  • ~A~%" (rest diagnosis))))
-        (format t "I couldn't determine a specific diagnosis.~%"))
-    
-    (format t "~%Recommended actions:~%")
-    (let ((recommendations (remove-if-not 
-                           (lambda (fact) 
-                             (and (listp fact) 
-                                  (eq (first fact) 'recommend)))
-                           *facts*)))
-      
-      (if recommendations
-          (dolist (recommendation recommendations)
-            (format t "  • ~A~%" (rest recommendation)))
-          (format t "  • Consult a qualified mechanic for further diagnosis~%")))))
-
-;; Export main functions
-(format t "Expert system engine loaded successfully.~%")
+(format t "~&Backward chaining expert system loaded successfully.~%")
