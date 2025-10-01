@@ -1,15 +1,17 @@
 ;; =============================================================================
 ;; DEMO.LISP
-;; Interactive Demonstrations for Car Expert System
+;; Interactive Demonstrations for Backward Chaining Car Expert System
+;; Updated for goal-driven reasoning with certainty factors
 ;; =============================================================================
 
 (load "car-rules.lisp")
+(in-package :expert-system)
 
 (defun demo-menu ()
-  "Interactive demo menu"
+  "Interactive demo menu for backward chaining system"
   (format t "~%")
   (format t "================================================~%")
-  (format t "    CAR EXPERT SYSTEM - DEMO MODE~%")
+  (format t "    BACKWARD CHAINING CAR EXPERT SYSTEM~%")
   (format t "================================================~%")
   (format t "Choose a demonstration:~%")
   (format t "1. Dead Battery Scenario~%")
@@ -41,106 +43,126 @@
   "Demonstrate dead battery diagnosis"
   (format t "~%=== DEAD BATTERY SCENARIO ===~%")
   (format t "Symptoms: Car won't start, lights are dim~%")
-  (reset-system)
-  (enable-trace)
-  (add-fact '(car does-not-start))
-  (add-fact '(lights dim-or-off))
-  (forward-chain)
-  (show-diagnosis-results)
-  (disable-trace))
+  (clear-facts)
+  (add-fact '(car does-not-start) 0.9)
+  (add-fact '(lights dim-or-off) 0.8)
+  (let ((result (prove-goal '(car-problem dead-battery))))
+    (format t "Dead battery diagnosis CF: ~,2F (~,1F% confidence)~%" result (* result 100))
+    (if (certainty-true-p result)
+        (format t "CONCLUSION: Dead battery is LIKELY~%")
+        (format t "CONCLUSION: Dead battery is UNLIKELY~%"))))
 
 (defun demo-overheating ()
   "Demonstrate overheating diagnosis"
   (format t "~%=== ENGINE OVERHEATING SCENARIO ===~%")
   (format t "Symptoms: Engine running hot, coolant low~%")
-  (reset-system)
-  (enable-trace)
-  (add-fact '(engine running))
-  (add-fact '(temperature high))
-  (add-fact '(coolant low))
-  (forward-chain)
-  (show-diagnosis-results)
-  (disable-trace))
+  (clear-facts)
+  (add-fact '(engine running) 0.9)
+  (add-fact '(temperature high) 0.9)
+  (add-fact '(coolant low) 0.8)
+  (let ((result (prove-goal '(car-problem overheating))))
+    (format t "Overheating diagnosis CF: ~,2F (~,1F% confidence)~%" result (* result 100))
+    (if (certainty-true-p result)
+        (format t "CONCLUSION: Overheating is LIKELY~%")
+        (format t "CONCLUSION: Overheating is UNLIKELY~%"))))
 
 (defun demo-brake-problems ()
   "Demonstrate brake problem diagnosis"
   (format t "~%=== BRAKE PROBLEMS SCENARIO ===~%")
   (format t "Symptoms: Brake warning light is on~%")
-  (reset-system)
-  (enable-trace)
-  (add-fact '(brake-warning-light on))
-  (forward-chain)
-  (show-diagnosis-results)
-  (disable-trace))
+  (clear-facts)
+  (add-fact '(brake-warning-light on) 0.9)
+  (let ((result (prove-goal '(car-problem brake-system))))
+    (format t "Brake system diagnosis CF: ~,2F (~,1F% confidence)~%" result (* result 100))
+    (if (certainty-true-p result)
+        (format t "CONCLUSION: Brake system problem is LIKELY~%")
+        (format t "CONCLUSION: Brake system problem is UNLIKELY~%"))))
 
 (defun demo-transmission ()
   "Demonstrate transmission problem diagnosis"
   (format t "~%=== TRANSMISSION ISSUES SCENARIO ===~%")
   (format t "Symptoms: Engine revs high, poor acceleration~%")
-  (reset-system)
-  (enable-trace)
-  (add-fact '(car starts))
-  (add-fact '(engine revs-high))
-  (add-fact '(acceleration poor))
-  (forward-chain)
-  (show-diagnosis-results)
-  (disable-trace))
+  (clear-facts)
+  (add-fact '(car starts) 0.9)
+  (add-fact '(engine revs-high) 0.8)
+  (add-fact '(acceleration poor) 0.8)
+  (let ((result (prove-goal '(car-problem transmission-slip))))
+    (format t "Transmission diagnosis CF: ~,2F (~,1F% confidence)~%" result (* result 100))
+    (if (certainty-true-p result)
+        (format t "CONCLUSION: Transmission problem is LIKELY~%")
+        (format t "CONCLUSION: Transmission problem is UNLIKELY~%"))))
 
 (defun show-diagnosis-results ()
-  "Show diagnosis and recommendations"
+  "Show diagnosis results using backward chaining"
   (format t "~%--- DIAGNOSIS RESULTS ---~%")
-  (let ((diagnoses (remove-if-not 
-                    (lambda (fact) 
-                      (and (listp fact) 
-                           (eq (first fact) 'diagnosis)))
-                    *facts*))
-        (recommendations (remove-if-not 
-                         (lambda (fact) 
-                           (and (listp fact) 
-                                (eq (first fact) 'recommend)))
-                         *facts*)))
-    
-    (if diagnoses
-        (progn
-          (format t "Possible Causes:~%")
-          (dolist (diagnosis diagnoses)
-            (format t "  • ~{~A~^ ~}~%" (rest diagnosis))))
-        (format t "No specific diagnosis found.~%"))
-    
-    (if recommendations
-        (progn
-          (format t "~%Recommendations:~%")
-          (dolist (recommendation recommendations)
-            (format t "  • ~A~%" (second recommendation))))
-        (format t "~%No specific recommendations.~%"))))
+    ;; Test multiple car problems
+  (let ((problems '((car-problem dead-battery)
+                    (car-problem starter-failure)
+                    (car-problem fuel-system)
+                    (car-problem ignition-system)
+                    (car-problem overheating)
+                    (car-problem brake-system)
+                    (car-problem transmission-slip))))    (let ((found-problems nil))
+      (dolist (problem problems)
+        (let ((cf (prove-goal problem)))
+          (when (> (abs cf) 0.1)  ; Only show problems with some evidence
+            (push (list problem cf) found-problems))))
+      
+      (if found-problems
+          (progn
+            (format t "Possible problems (ranked by confidence):~%")
+            (setf found-problems (sort found-problems (lambda (a b) (> (second a) (second b)))))
+            (dolist (problem-result found-problems)
+              (let ((problem (first problem-result))
+                    (cf (second problem-result)))
+                (format t "  • ~A: ~,1F% confidence~%" 
+                        (case (second problem)
+                          (dead-battery "Dead Battery")
+                          (starter-failure "Starter Failure") 
+                          (fuel-system "Fuel System")
+                          (ignition-system "Ignition System")
+                          (overheating "Overheating")
+                          (brake-system "Brake System")
+                          (transmission-slip "Transmission Slipping")
+                          (otherwise "Unknown Problem"))
+                        (* (abs cf) 100)))))
+          (format t "No specific diagnosis found with current evidence.~%")))))
 
 (defun simple-diagnosis ()
-  "Simple interactive diagnosis"
+  "Simple interactive diagnosis using backward chaining"
   (format t "~%=== INTERACTIVE DIAGNOSIS ===~%")
-  (reset-system)
+  (clear-facts)
   
   (format t "Does your car start? (y/n): ")
   (let ((starts (read)))
     (if (or (eq starts 'y) (eq starts 'yes))
-        (add-fact '(car starts))
-        (add-fact '(car does-not-start))))
+        (add-fact '(car starts) 0.9)
+        (add-fact '(car does-not-start) 0.9)))
   
-  (when (fact-exists-p '(car does-not-start))
-    (format t "Do the lights work? (y/n): ")
+  (when (fact-known-p '(car does-not-start))
+    (format t "Do the lights work normally? (y/n): ")
     (let ((lights (read)))
       (if (or (eq lights 'y) (eq lights 'yes))
-          (add-fact '(lights work))
-          (add-fact '(lights dim-or-off)))))
+          (add-fact '(lights work) 0.8)
+          (add-fact '(lights dim-or-off) 0.8))))
   
-  (when (fact-exists-p '(car starts))
+  (when (fact-known-p '(car starts))
     (format t "Are there warning lights on dashboard? (y/n): ")
     (let ((warning (read)))
       (when (or (eq warning 'y) (eq warning 'yes))
-        (add-fact '(dashboard warning-lights)))))
+        (add-fact '(dashboard warning-lights) 0.8))))
   
-  (format t "~%Running diagnosis...~%")
-  (forward-chain)
+  (format t "~%Running backward chaining diagnosis...~%")
   (show-diagnosis-results))
+
+(defun system-status ()
+  "Show system status information"
+  (format t "~%=== SYSTEM STATUS ===~%")
+  (format t "Backward Chaining Car Expert System~%")
+  (format t "Package: ~A~%" (package-name *package*))
+  (format t "Number of facts: ~A~%" (hash-table-count *facts*))
+  (format t "Number of rules: ~A~%" (length *rules*))
+  (format t "System ready for diagnosis~%"))
 
 ;; Start the demo
 (format t "~%Car Expert System Demo loaded!~%")

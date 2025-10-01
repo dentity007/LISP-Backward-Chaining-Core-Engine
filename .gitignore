@@ -1,0 +1,127 @@
+# LISP Car Expert System - .gitignore
+
+# =============================================================================
+# LISP-specific files
+# =============================================================================
+
+# SBCL compiled files
+*.fasl
+*.fas
+*.lib
+
+# Other Lisp implementations
+*.dfsl
+*.pfsl
+*.d64fsl
+*.dx64fsl
+*.lx64fsl
+*.lx32fsl
+*.dx32fsl
+*.fx64fsl
+*.fx32fsl
+*.sx64fsl
+*.sx32fsl
+*.wx64fsl
+*.wx32fsl
+
+# =============================================================================
+# Development and debugging files
+# =============================================================================
+
+# Debug and test files (should not be in production)
+debug-test.lisp
+*-debug.lisp
+temp-*.lisp
+
+# Log files
+*.log
+debug.txt
+trace.txt
+
+# =============================================================================
+# Operating System files
+# =============================================================================
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# =============================================================================
+# Editor and IDE files
+# =============================================================================
+
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+.vscode/c_cpp_properties.json
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Vim
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# Security-sensitive files (if any are accidentally created)
+# =============================================================================
+
+# API keys and secrets
+.env
+.env.local
+.env.*.local
+secrets.txt
+keys.txt
+config.secret
+*.key
+*.pem
+*.crt
+
+# =============================================================================
+# Backup and temporary files
+# =============================================================================
+
+# Backup files
+*.bak
+*.backup
+*.orig
+*.tmp
+
+# Archive files (unless specifically needed)
+*.zip
+*.tar
+*.tar.gz
+*.rar
+
+# =============================================================================
+# Project-specific exclusions
+# =============================================================================
+
+# Old forward chaining files (if we want to keep them out of main branch)
+# simple-car-expert.lisp
+# forward-chain-backup/
+
+# Obsolete demo files
+# old-demos/

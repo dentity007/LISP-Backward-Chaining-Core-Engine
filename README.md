@@ -674,20 +674,25 @@ Recommendations:
 
 ### Expert System Functions
 ```lisp
-;; Basic Operations
-(reset-system)              ; Clear all facts
-(show-facts)               ; Display current facts
-(add-fact '(car starts))   ; Add a fact manually
+;; Basic Operations - Backward Chaining API
+(clear-facts)                           ; Clear all facts and reset session
+(show-facts)                           ; Display current facts with certainty factors
+(add-fact '(car does-not-start) 0.9)  ; Add fact with certainty factor
+
+;; Goal-Driven Reasoning
+(prove-goal '(car-problem dead-battery))  ; Prove specific diagnosis
+(consult '(car-problem overheating))      ; Interactive consultation
 
 ;; Demonstrations
-(demo-dead-battery)        ; Battery scenario
-(demo-overheating)         ; Overheating scenario
-(demo-brake-problem)       ; Brake warning scenario
-(interactive-diagnosis)    ; Interactive Q&A session
+(quick-demo)                          ; Quick dead battery demo
+(demo-dead-battery)                   ; Battery scenario with CF
+(demo-overheating)                    ; Overheating with 85% confidence
+(run-demo-scenarios)                  ; All demonstration scenarios
 
-;; Rule System
-(load-car-rules)          ; Reload diagnostic rules
-(apply-rules)             ; Manual rule application
+;; System Control
+(enable-trace)                        ; Show inference tracing
+(disable-trace)                       ; Hide inference details
+(diagnose-car-problem)                ; Full interactive diagnosis
 ```
 
 ### VS Code Integration
