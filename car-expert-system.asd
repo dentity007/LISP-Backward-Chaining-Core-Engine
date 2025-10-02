@@ -18,3 +18,14 @@
   :components ((:file "certainty-factor-tests")
                (:file "comprehensive-tests")
                (:file "test")))
+
+;; Integrate a simple, consistent test entry point for ASDF test-op
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmethod asdf:perform ((op asdf:test-op) (system (eql (asdf:find-system :car-expert-system/tests))))
+    (declare (ignore system))
+    (asdf:load-system :car-expert-system/tests)
+    (let* ((ok1 (uiop:symbol-call :expert-system :run-certainty-tests))
+           (ok2 (uiop:symbol-call :expert-system :run-comprehensive-tests)))
+      (unless (and ok1 ok2)
+        (error "Expert system tests failed"))
+      t)))

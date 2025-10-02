@@ -88,14 +88,13 @@
         (format t "--------------------~%")
         
         (dolist (problem problems)
-          (let* ((problem-goal (first problem))
-                 (problem-name (second problem))
+          (let* ((problem-name (second problem))
                  (cf (third problem))
                  (confidence (* (abs cf) 100))
                  (conclusion (cond 
                               ((certainty-true-p cf) "LIKELY")
                               ((certainty-false-p cf) "UNLIKELY") 
-                              (t "UNCERTAIN"))))
+                               (t "UNCERTAIN"))))
             
             (format t "~%• ~A: ~A (~,1F% confidence)~%" 
                     problem-name conclusion confidence)
@@ -420,25 +419,7 @@
   "Main entry point for the backward chaining car expert system"
   (run-car-diagnosis))
 
-(defun consultation-menu ()
-  "Display consultation menu and handle user choices"
-  (format t "~%=== CAR DIAGNOSTIC CONSULTATION ===~%")
-  (format t "1. Full diagnostic consultation~%")
-  (format t "2. Quick symptom check~%")
-  (format t "3. Run demonstration scenarios~%")
-  (format t "4. Toggle interactive questions (~A)~%" (if *interactive-questions* "ON" "OFF"))
-  (format t "5. Exit~%")
-  (format t "~%Choose an option (1-5): ")
-  (let ((choice (read)))
-    (case choice
-      (1 (run-comprehensive-diagnosis))
-      (2 (quick-demo))
-      (3 (run-demo-scenarios))
-      (4 (toggle-questions))
-      (5 (format t "Goodbye!~%"))
-      (otherwise 
-       (format t "Invalid choice. Please select 1-5.~%")
-       (consultation-menu)))))
+;; (removed duplicate consultation-menu definition)
 
 ;; Initialize the system
 (format t "~%============================================================~%")

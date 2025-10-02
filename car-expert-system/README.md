@@ -110,7 +110,11 @@ This project demonstrates both:
 
 ## 📝 Development Notes
 
-The modular backward‑chaining expert system in this folder is the primary implementation. The legacy `simple-car-expert.lisp` remains as a forward‑chaining educational reference.
+The modular backward‑chaining expert system in this folder is the primary implementation.
+
+### Historical Reference
+
+The legacy `simple-car-expert.lisp` in the project root is a forward‑chaining educational example kept for comparison and teaching purposes. New development should target the backward‑chaining engine in this folder.
 
 ---
 
