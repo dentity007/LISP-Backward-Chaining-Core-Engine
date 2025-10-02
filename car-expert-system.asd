@@ -29,3 +29,10 @@
       (unless (and ok1 ok2)
         (error "Expert system tests failed"))
       t)))
+
+;; Allow testing via the main system name as well
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmethod asdf:perform ((op asdf:test-op) (system (eql (asdf:find-system :car-expert-system))))
+    (declare (ignore system))
+    (asdf:load-system :car-expert-system/tests)
+    (asdf:perform 'asdf:test-op (asdf:find-system :car-expert-system/tests))))
