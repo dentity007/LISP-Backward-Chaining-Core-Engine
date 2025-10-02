@@ -48,6 +48,16 @@ You can toggle user prompts on/off to support scripted runs and automated testin
 - From the UI:
   - The consultation menu includes “Toggle interactive questions (ON/OFF)”.
 
+## Tracing Toggle
+
+Enable or disable detailed reasoning logs during a session:
+
+- From the UI:
+  - Choose “Toggle tracing (ON/OFF)” in the consultation menu.
+- Programmatic control:
+  - `(toggle-tracing)` to flip state
+  - `(enable-trace)` / `(disable-trace)` for explicit control
+
 ## Notes
 
 - Loading is centralized. Code that previously self-loaded dependencies has been simplified. Use `run.lisp` as the entry point; it loads the engine first, then the rules.
@@ -67,6 +77,9 @@ If something seems off, check `../TROUBLESHOOTING.md` for a concise setup and de
 
 - Comprehensive scenario tests (fail with non‑zero exit on failure)
   - `sbcl --load comprehensive-tests.lisp --eval "(in-package :expert-system)" --eval "(if (run-comprehensive-tests) (sb-ext:exit :code 0) (sb-ext:exit :code 1))"`
+
+- ASDF test entry (runs certainty + comprehensive suites, non‑zero exit on failure)
+  - `sbcl --eval "(require :asdf)" --eval "(asdf:test-system :car-expert-system)" --quit`
 
 ### Recommended Testing:
 ```bash

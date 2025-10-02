@@ -359,6 +359,8 @@ Enable detailed inference logging to see the reasoning process:
 (disable-trace)  ; Turn off logging
 ```
 
+Tip: You can also toggle tracing from the interactive menu ("Toggle tracing (ON/OFF)") or programmatically with `(toggle-tracing)`.
+
 ### **Custom Rule Development**
 Add new diagnostic rules using the `define-rule` macro:
 
@@ -382,6 +384,20 @@ Test multiple scenarios programmatically:
 ;; Run diagnosis
 (let ((result (prove-goal '(car-problem dead-battery))))
   (format t "Diagnosis confidence: ~,2F~%" result))
+```
+
+### **ASDF Tests**
+
+Run the full test suite via ASDF (CI-friendly, non‑zero exit on failure):
+
+```bash
+sbcl --eval "(require :asdf)" --eval "(asdf:test-system :car-expert-system)" --quit
+```
+
+Alternate explicit tests system name:
+
+```bash
+sbcl --eval "(require :asdf)" --eval "(asdf:test-system :car-expert-system/tests)" --quit
 ```
 
 ## 🔬 Technical Implementation Details
