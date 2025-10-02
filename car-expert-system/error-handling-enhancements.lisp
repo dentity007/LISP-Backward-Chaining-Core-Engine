@@ -1,7 +1,9 @@
 ;; =============================================================================
-;; ERROR-HANDLING-ENHANCEMENTS.LISP
-;; Sophisticated error handling for the backward chaining expert system
+;; ERROR-HANDLING-ENHANCEMENTS.LISP (Optional / Experimental)
 ;; Adds validation, error recovery, and robust input handling
+;; NOTE: This file is NOT auto-loaded. It overrides core functions and may
+;; conflict with the current define-rule macro signature and rule indexing.
+;; Prefer the built-in validation in expert-system.lisp. Load with caution.
 ;; =============================================================================
 
 (load "expert-system.lisp")

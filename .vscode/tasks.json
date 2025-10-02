@@ -32,6 +32,54 @@
                 "panel": "new"
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Run Expert System",
+            "type": "shell",
+            "command": "sbcl",
+            "args": [
+                "--eval", "(load \\\"car-expert-system/run.lisp\\\")",
+                "--eval", "(main)"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Load Expert System (REPL)",
+            "type": "shell",
+            "command": "sbcl",
+            "args": [
+                "--eval", "(load \\\"car-expert-system/run.lisp\\\")"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Comprehensive Tests",
+            "type": "shell",
+            "command": "sbcl",
+            "args": [
+                "--load", "car-expert-system/comprehensive-tests.lisp",
+                "--eval", "(in-package :expert-system)",
+                "--eval", "(if (run-comprehensive-tests) (sb-ext:exit :code 0) (sb-ext:exit :code 1))"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "problemMatcher": []
         }
     ]
 }

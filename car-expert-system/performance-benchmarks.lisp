@@ -11,14 +11,19 @@
 ;; Benchmark utilities
 (defvar *benchmark-results* nil)
 
+(defun %dynamic-usage ()
+  "Return dynamic memory usage if available for this Lisp."
+  #+sbcl (sb-kernel:dynamic-usage)
+  #-sbcl 0)
+
 (defmacro time-operation (name &body body)
   "Time an operation and record the results"
   `(let ((start-time (get-internal-real-time))
-         (start-bytes (sb-kernel:dynamic-usage)))
+         (start-bytes (%dynamic-usage)))
      (multiple-value-prog1
          (progn ,@body)
        (let ((end-time (get-internal-real-time))
-             (end-bytes (sb-kernel:dynamic-usage)))
+             (end-bytes (%dynamic-usage)))
          (push (list ,name
                      (/ (- end-time start-time) internal-time-units-per-second)
                      (- end-bytes start-bytes))
@@ -163,18 +168,18 @@
 
   ;; Measure memory impact of adding facts
   (clear-facts)
-  (let ((initial-usage (sb-kernel:dynamic-usage)))
+  (let ((initial-usage (%dynamic-usage)))
     (time-operation "Add 10 facts"
       (dotimes (i 10)
         (add-fact (list 'test-fact i) 0.8)))
 
-    (let ((with-facts-usage (sb-kernel:dynamic-usage)))
+    (let ((with-facts-usage (%dynamic-usage)))
       (format t "Memory per fact: ~,1F KB~%"
               (/ (- with-facts-usage initial-usage) 10.0 1024))))
 
   ;; Measure memory impact of rules
   (format t "Rule storage: ~,1F KB for ~A rules~%"
-          (/ (sb-kernel:dynamic-usage) 1024.0) (length *rules*)))
+          (/ (%dynamic-usage) 1024.0) (length *rules*)))
 
 ;; =============================================================================
 ;; SCALABILITY BENCHMARKS

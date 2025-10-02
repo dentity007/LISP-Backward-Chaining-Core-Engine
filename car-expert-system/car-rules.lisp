@@ -1,9 +1,14 @@
 ;;;; Car Diagnostic Rules for Backward Chaining Expert System
 ;;;; Converted from forward chaining to goal-oriented reasoning with certainty factors
 
-;; Load the expert system engine first
-(load "expert-system.lisp")
 (in-package :expert-system)
+
+;; Register domain contradictions so that contradictory evidence yields
+;; negative certainty for rules requiring the opposite condition.
+;; Examples: (lights work) vs (lights dim-or-off), (car starts) vs (car does-not-start)
+(register-contradiction '(lights work) '(lights dim-or-off))
+(register-contradiction '(car starts) '(car does-not-start))
+(register-contradiction '(engine running) '(car does-not-start))
 
 ;; =============================================================================
 ;; MAIN DIAGNOSTIC GOALS
@@ -189,51 +194,7 @@
 ;; CONSULTATION FUNCTIONS
 ;; =============================================================================
 
-(defun diagnose-car-problem ()
-  "Start a car diagnostic consultation"
-  (clear-session)
-  (format t "~&=== CAR DIAGNOSTIC EXPERT SYSTEM ===~%")
-  (format t "I'll help you diagnose your car problem.~%")
-  (format t "Please answer the questions as accurately as possible.~%~%")
-  
-  ;; Try to diagnose main problems
-  (let ((problems '((car-problem dead-battery)
-                   (car-problem starter-failure)
-                   (car-problem fuel-system)
-                   (car-problem ignition-system)
-                   (car-problem engine-misfire)
-                   (car-problem overheating)
-                   (car-problem low-oil-pressure)
-                   (car-problem transmission-slip)
-                   (car-problem brake-system)
-                   (car-problem charging-system)))
-        (found-problems nil))
-    
-    (dolist (problem problems)
-      (let ((cf (prove-goal problem)))
-        (when (certainty-true-p cf)
-          (push (list problem cf) found-problems))))
-    
-    ;; Display results
-    (format t "~&~%=== DIAGNOSTIC RESULTS ===~%")
-    (if found-problems
-        (progn
-          (format t "Likely problems found:~%")
-          (dolist (problem-cf found-problems)
-            (let ((problem (first problem-cf))
-                  (cf (second problem-cf)))
-              (format t "  • ~A (confidence: ~,1F%)~%" 
-                      (get-problem-description problem) (* cf 100))))
-          
-          (format t "~%=== RECOMMENDATIONS ===~%")
-          (dolist (problem-cf found-problems)
-            (let ((problem (first problem-cf)))
-              (format t "~%For ~A:~%" (get-problem-description problem))
-              (print-recommendations problem))))
-        (format t "No specific problems could be identified with sufficient confidence.~%"))
-    
-    found-problems))
-
+;; Define helpers before use to avoid compilation warnings
 (defun get-problem-description (problem)
   "Get human-readable description for a problem"
   (case (second problem)
@@ -309,6 +270,51 @@
      (format t "  - Check drive belt~%")
      (format t "  - Inspect battery connections~%")
      (format t "  - Test voltage regulator~%"))))
+
+(defun diagnose-car-problem ()
+  "Start a car diagnostic consultation"
+  (clear-session)
+  (format t "~&=== CAR DIAGNOSTIC EXPERT SYSTEM ===~%")
+  (format t "I'll help you diagnose your car problem.~%")
+  (format t "Please answer the questions as accurately as possible.~%~%")
+  
+  ;; Try to diagnose main problems
+  (let ((problems '((car-problem dead-battery)
+                   (car-problem starter-failure)
+                   (car-problem fuel-system)
+                   (car-problem ignition-system)
+                   (car-problem engine-misfire)
+                   (car-problem overheating)
+                   (car-problem low-oil-pressure)
+                   (car-problem transmission-slip)
+                   (car-problem brake-system)
+                   (car-problem charging-system)))
+        (found-problems nil))
+    
+    (dolist (problem problems)
+      (let ((cf (prove-goal problem)))
+        (when (certainty-true-p cf)
+          (push (list problem cf) found-problems))))
+    
+    ;; Display results
+    (format t "~&~%=== DIAGNOSTIC RESULTS ===~%")
+    (if found-problems
+        (progn
+          (format t "Likely problems found:~%")
+          (dolist (problem-cf found-problems)
+            (let ((problem (first problem-cf))
+                  (cf (second problem-cf)))
+              (format t "  • ~A (confidence: ~,1F%)~%" 
+                      (get-problem-description problem) (* cf 100))))
+          
+          (format t "~%=== RECOMMENDATIONS ===~%")
+          (dolist (problem-cf found-problems)
+            (let ((problem (first problem-cf)))
+              (format t "~%For ~A:~%" (get-problem-description problem))
+              (print-recommendations problem))))
+        (format t "No specific problems could be identified with sufficient confidence.~%"))
+    
+    found-problems))
 
 ;; =============================================================================
 ;; DEMO FUNCTION

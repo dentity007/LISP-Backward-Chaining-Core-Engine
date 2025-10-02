@@ -4,14 +4,27 @@
 ;;; Package definition
 (defpackage :expert-system
   (:use :common-lisp)
-  (:export #:define-rule
-           #:ask-question
-           #:consult
-           #:clear-session
-           #:show-facts
-           #:enable-trace
-           #:disable-trace
-           #:*certainty-threshold*))
+  (:export
+   ;; Public API
+   #:define-rule
+   #:ask-question
+   #:consult
+   #:clear-session
+   #:show-facts
+   #:enable-trace
+   #:disable-trace
+   #:*certainty-threshold*
+   #:*interactive-questions*
+   #:enable-questions
+   #:disable-questions
+   
+   ;; Introspection helpers
+   #:*rules*
+   #:rule-name
+   #:rule-goal
+   #:add-fact
+   #:prove-goal
+   #:clear-facts))
 
 (in-package :expert-system)
 
@@ -22,6 +35,9 @@
 (defvar *rules* nil
   "List of rules in the expert system")
 
+(defvar *rule-index* (make-hash-table :test 'equal)
+  "Hash mapping goal -> list of rules for fast lookup")
+
 (defvar *asked-questions* (make-hash-table :test 'equal)
   "Hash table tracking which questions have been asked")
 
@@ -30,6 +46,16 @@
 
 (defvar *certainty-threshold* 0.2
   "Minimum certainty factor for a fact to be considered true")
+
+(defvar *prove-cache* nil
+  "Per-session cache: goal -> certainty factor to avoid recomputation")
+
+(defvar *interactive-questions* t
+  "When NIL, suppress interactive prompts and treat unknowns as 0.")
+
+;;; Contradiction handling
+(defvar *contradictions* (make-hash-table :test 'equal)
+  "Mapping of facts to their contradictory facts.")
 
 ;;; Certainty factor operations
 (defun combine-certainty (cf1 cf2)
@@ -54,11 +80,18 @@
 ;;; Fact management
 (defun add-fact (fact cf)
   "Add or update a fact with its certainty factor"
-  (let ((existing-cf (gethash fact *facts* 0)))
+  (let* ((validp (and (numberp cf) (<= -1.0 cf) (<= cf 1.0)))
+         (cf (if validp cf 0.0))
+         (existing-cf (gethash fact *facts* 0)))
+    (unless validp
+      (warn "Invalid certainty factor ~S for ~S; using 0.0" cf fact))
     (setf (gethash fact *facts*) 
           (combine-certainty existing-cf cf))
     (when *trace-enabled*
       (format t "~&Added fact: ~A with CF: ~,2F~%" fact (gethash fact *facts*)))
+    ;; Invalidate cached proof for this fact/goal in current session
+    (when (hash-table-p *prove-cache*)
+      (remhash fact *prove-cache*))
     (gethash fact *facts*)))
 
 (defun get-fact-cf (fact)
@@ -71,6 +104,23 @@
       (gethash fact *facts*)
     (declare (ignore value))
     exists-p))
+
+;; Define contradiction helpers after fact utilities to avoid warnings
+(defun register-contradiction (fact-a fact-b)
+  "Declare FACT-A and FACT-B as contradictory facts (bidirectional)."
+  (pushnew fact-b (gethash fact-a *contradictions*) :test #'equal)
+  (pushnew fact-a (gethash fact-b *contradictions*) :test #'equal)
+  t)
+
+(defun contradictory-known-cf (fact)
+  "Return highest positive CF among known contradictory facts of FACT."
+  (let ((best 0))
+    (dolist (c (gethash fact *contradictions*))
+      (when (fact-known-p c)
+        (let ((cf (get-fact-cf c)))
+          (when (> cf best)
+            (setf best cf)))))
+    best))
 
 (defun clear-facts ()
   "Clear all facts and asked questions"
@@ -87,21 +137,31 @@
   cf
   question)
 
+(defun build-rule-index (rules)
+  "Rebuild rule index from rule list."
+  (let ((idx (make-hash-table :test 'equal)))
+    (dolist (r rules)
+      (setf (gethash (rule-goal r) idx)
+            (cons r (gethash (rule-goal r) idx))))
+    idx))
+
 (defmacro define-rule (name goal conditions cf &optional question)
   "Define a rule for backward chaining"
   `(progn
      (setf *rules* (remove ',name *rules* :key #'rule-name))
      (push (make-rule :name ',name
-                      :goal ',goal
-                      :conditions ',conditions
+                      :goal ,goal
+                      :conditions ,conditions
                       :cf ,cf
                       :question ,question)
            *rules*)
+     (setf *rule-index* (build-rule-index *rules*))
      ',name))
 
 (defun clear-rules ()
   "Clear all rules"
-  (setf *rules* nil))
+  (setf *rules* nil)
+  (setf *rule-index* (make-hash-table :test 'equal)))
 
 ;;; Question asking mechanism
 (defun ask-question (fact question)
@@ -111,6 +171,10 @@
   
   (setf (gethash fact *asked-questions*) t)
   
+  ;; Non-interactive mode: don't prompt; treat as unknown (0)
+  (unless *interactive-questions*
+    (return-from ask-question (add-fact fact 0)))
+
   (format t "~&~A~%" question)
   (format t "Enter certainty (-1 to 1, or y/n for 0.8/-0.8): ")
   (force-output)
@@ -131,10 +195,38 @@
                  (add-fact fact 0))))))))
 
 ;;; Backward chaining inference
+;; Forward declaration to avoid style warning on first reference
+(declaim (ftype (function (t) t) prove-goal))
+;; Evaluate conditions before goals to avoid forward-reference warnings
+(defun prove-conditions (conditions)
+  "Prove all conditions and return minimum certainty factor"
+  (if (null conditions)
+      1.0
+      (let ((min-cf 1.0))
+        (dolist (condition conditions)
+          (let* ((contradict-cf (contradictory-known-cf condition))
+                 (cf (if (certainty-true-p contradict-cf)
+                         (- contradict-cf)
+                         (prove-goal condition))))
+            (when *trace-enabled*
+              (format t "~&Condition ~A has CF: ~,2F~%" condition cf))
+            (setf min-cf (min min-cf cf))))
+        min-cf)))
+
 (defun prove-goal (goal)
   "Attempt to prove a goal using backward chaining"
   (when *trace-enabled*
     (format t "~&Trying to prove: ~A~%" goal))
+
+  ;; Initialize per-session cache lazily
+  (unless (hash-table-p *prove-cache*)
+    (setf *prove-cache* (make-hash-table :test 'equal)))
+
+  ;; Return cached result if available
+  (multiple-value-bind (cached cached-p) (gethash goal *prove-cache*)
+    (when cached-p
+      (when *trace-enabled* (format t "~&Cache hit for ~A => ~,2F~%" goal cached))
+      (return-from prove-goal cached)))
   
   ;; If fact is already known, return its certainty factor
   (when (fact-known-p goal)
@@ -143,23 +235,35 @@
     (return-from prove-goal (get-fact-cf goal)))
   
   ;; Try to prove using rules
-  (let ((max-cf 0))
-    (dolist (rule *rules*)
-      (when (equal (eval (rule-goal rule)) goal)
+  (let ((max-cf 0)
+        (candidate-rules (or (gethash goal *rule-index*) *rules*)))
+    (dolist (rule candidate-rules)
+      (when (equal (rule-goal rule) goal)
         (when *trace-enabled*
           (format t "~&Trying rule: ~A~%" (rule-name rule)))
-        
-        (let ((conditions-cf (prove-conditions (eval (rule-conditions rule)))))
-          (when (certainty-true-p conditions-cf)
-            (let ((rule-cf (* conditions-cf (rule-cf rule))))
-              (when *trace-enabled*
-                (format t "~&Rule ~A succeeded with CF: ~,2F~%" (rule-name rule) rule-cf))
-              (setf max-cf (combine-certainty max-cf rule-cf)))))))
+
+        ;; Special case: rules with empty conditions and a question
+        (cond
+          ((and (null (rule-conditions rule)) (rule-question rule))
+           ;; Do not auto-succeed; only ask if the fact isn't already known
+           (unless (fact-known-p goal)
+             (let ((resp-cf (ask-question goal (rule-question rule))))
+               (when *trace-enabled*
+                 (format t "~&Question answered for ~A: CF ~,2F~%" goal resp-cf))
+               (setf max-cf (combine-certainty max-cf resp-cf)))))
+
+          (t
+           (let ((conditions-cf (prove-conditions (rule-conditions rule))))
+             (when (certainty-true-p conditions-cf)
+               (let ((rule-cf (* conditions-cf (rule-cf rule))))
+                 (when *trace-enabled*
+                   (format t "~&Rule ~A succeeded with CF: ~,2F~%" (rule-name rule) rule-cf))
+                 (setf max-cf (combine-certainty max-cf rule-cf)))))))))
     
-    ;; If no rules succeeded and we have a question, ask it
+    ;; If no rules succeeded and we have a question, ask it (fallback)
     (when (and (= max-cf 0) (not (fact-known-p goal)))
       (let ((question-rule (find-if (lambda (r) 
-                                      (and (equal (eval (rule-goal r)) goal)
+                                      (and (equal (rule-goal r) goal)
                                            (rule-question r)))
                                     *rules*)))
         (when question-rule
@@ -169,19 +273,10 @@
     (when (> (abs max-cf) 0)
       (add-fact goal max-cf))
     
-    max-cf))
+    ;; Cache result for this goal in current session
+    (setf (gethash goal *prove-cache*) max-cf)
 
-(defun prove-conditions (conditions)
-  "Prove all conditions and return minimum certainty factor"
-  (if (null conditions)
-      1.0
-      (let ((min-cf 1.0))
-        (dolist (condition conditions)
-          (let ((cf (prove-goal condition)))
-            (when *trace-enabled*
-              (format t "~&Condition ~A has CF: ~,2F~%" condition cf))
-            (setf min-cf (min min-cf cf))))
-        min-cf)))
+    max-cf))
 
 ;;; Main consultation interface
 (defun consult (goal)
@@ -203,6 +298,8 @@
 (defun clear-session ()
   "Clear facts and asked questions for a new consultation"
   (clear-facts)
+  (when (hash-table-p *prove-cache*)
+    (clrhash *prove-cache*))
   (when *trace-enabled*
     (format t "~&Session cleared. Ready for new consultation.~%")))
 
@@ -225,6 +322,16 @@
   (setf *trace-enabled* nil)
   (format t "~&Tracing disabled~%"))
 
+(defun enable-questions ()
+  "Enable interactive question prompting."
+  (setf *interactive-questions* t)
+  (format t "~&Interactive questions enabled~%"))
+
+(defun disable-questions ()
+  "Disable interactive question prompting (unknown treated as 0)."
+  (setf *interactive-questions* nil)
+  (format t "~&Interactive questions disabled~%"))
+
 ;;; Demo function
 (defun demo-backward-chaining ()
   "Demonstrate backward chaining with simple rules"
@@ -246,56 +353,5 @@
   (enable-trace)
   (format t "~&Demo: Proving that Socrates is mortal~%")
   (consult '(mortal socrates)))
-
-;; =============================================================================
-;; MISSING UTILITY FUNCTIONS
-;; =============================================================================
-
-(defun get-problem-description (problem)
-  "Get a human-readable description for a car problem"
-  (case problem
-    (dead-battery "Dead or weak battery")
-    (starter-failure "Starter motor failure")
-    (fuel-system "Fuel system problems")
-    (ignition-system "Ignition system issues")
-    (engine-misfire "Engine misfiring")
-    (overheating "Engine overheating")
-    (brake-problems "Brake system issues")
-    (otherwise (format nil "~A" problem))))
-
-(defun print-recommendations (problem)
-  "Print recommendations for a specific car problem"
-  (format t "  Recommendations for ~A:~%" (get-problem-description problem))
-  (case problem
-    (dead-battery
-     (format t "    • Test battery voltage and charge~%")
-     (format t "    • Check battery terminals for corrosion~%")
-     (format t "    • Consider battery replacement if old~%"))
-    (starter-failure
-     (format t "    • Have starter motor tested~%")
-     (format t "    • Check starter connections and solenoid~%")
-     (format t "    • Test starter relay~%"))
-    (fuel-system
-     (format t "    • Check fuel level and fuel pump~%")
-     (format t "    • Test fuel pressure and filter~%")
-     (format t "    • Inspect fuel injectors~%"))
-    (ignition-system
-     (format t "    • Check spark plugs and ignition coils~%")
-     (format t "    • Test ignition timing and wires~%")
-     (format t "    • Inspect distributor components~%"))
-    (engine-misfire
-     (format t "    • Check spark plugs, wires, and coils~%")
-     (format t "    • Clean fuel injectors~%")
-     (format t "    • Check for vacuum leaks~%"))
-    (overheating
-     (format t "    • 🚨 STOP DRIVING IMMEDIATELY~%")
-     (format t "    • Check coolant level and leaks~%")
-     (format t "    • Test radiator cap and water pump~%"))
-    (brake-problems
-     (format t "    • Check brake fluid level~%")
-     (format t "    • Inspect brake pads and rotors~%")
-     (format t "    • Test brake system pressure~%"))
-    (otherwise
-     (format t "    • Consult a professional mechanic~%"))))
 
 (format t "~&Backward chaining expert system loaded successfully.~%")

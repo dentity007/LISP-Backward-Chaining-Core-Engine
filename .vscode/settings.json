@@ -1,6 +1,9 @@
 {
-    "commonlisp.lispExecutablePath": "/usr/local/bin/sbcl",
+    "commonlisp.lispExecutablePath": "sbcl",
     "commonlisp.enableLSP": false,
+    "commonlisp.client": "sbcl",
+    "commonlisp.liveMode": false,
+    "lisp.trace.server": "off",
     "alive.lsp.executable": "sbcl",
     "alive.lsp.remote": false,
     "files.associations": {

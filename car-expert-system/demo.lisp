@@ -4,6 +4,7 @@
 ;; Updated for goal-driven reasoning with certainty factors
 ;; =============================================================================
 
+(load "expert-system.lisp")
 (load "car-rules.lisp")
 (in-package :expert-system)
 

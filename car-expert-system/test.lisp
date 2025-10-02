@@ -2,6 +2,7 @@
 ;;;; Updated for backward chaining with certainty factors
 
 ;; Load the backward chaining system
+(load "expert-system.lisp")
 (load "car-rules.lisp")
 (in-package :expert-system)
 
@@ -10,7 +11,7 @@
 
 ;; Test 1: Dead battery scenario
 (format t "~%=== Test 1: Dead Battery ===~%")
-(clear-facts)
+(clear-session)
 (add-fact '(car does-not-start) 0.9)
 (add-fact '(lights dim-or-off) 0.8)
 (let ((result (prove-goal '(car-problem dead-battery))))
@@ -18,7 +19,7 @@
 
 ;; Test 2: Overheating scenario  
 (format t "~%=== Test 2: Overheating ===~%")
-(clear-facts)
+(clear-session)
 (add-fact '(engine running) 0.9)
 (add-fact '(temperature high) 0.9)
 (add-fact '(coolant low) 0.8)

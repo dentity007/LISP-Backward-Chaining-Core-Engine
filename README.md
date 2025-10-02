@@ -140,6 +140,31 @@ Our system uses **MYCIN-style certainty factors** to handle uncertainty:
           (- 1 (min (abs cf1) (abs cf2)))))))
 ```
 
+## 🔁 Contradictions and Negative Evidence
+
+The engine supports domain-level contradictions so that known evidence for one fact becomes negative evidence against its opposite.
+
+- What it is
+  - A small map of contradictory facts (e.g., `(lights work)` vs `(lights dim-or-off)`) is used during inference. If a rule requires `(lights work)` but `(lights dim-or-off)` is already known with CF `k`, the condition contributes negative evidence `-k` to the rule.
+- Why it helps
+  - Produces negative CFs when appropriate (e.g., “starter-failure” becomes unlikely/false if lights are dim, contradicting the rule’s requirement that lights work).
+- How to extend
+  - Register contradictions in the knowledge file:
+    - `(expert-system:register-contradiction '(lights work) '(lights dim-or-off))`
+    - `(expert-system:register-contradiction '(car starts) '(car does-not-start))`
+
+## 🗣️ Interactive Questions Toggle
+
+Interactive prompts can be turned on/off at runtime:
+
+- Programmatic control
+  - `(expert-system:disable-questions)` to run non-interactively (unknowns treated as 0)
+  - `(expert-system:enable-questions)` to re-enable prompts
+- From the UI
+  - The consultation menu includes “Toggle interactive questions (ON/OFF)”.
+- Typical uses
+  - Disable during automated test runs or scripted demos; enable for guided consultations.
+
 ## 🚗 Automotive Diagnostic Capabilities
 
 Our expert system can diagnose **10 major car problems** with confidence levels:
@@ -244,6 +269,18 @@ Questions asked: 2
 Facts established: 2  
 Certainty threshold: 0.20
 ```
+
+## 🔍 Inspecting Rules from CLI
+
+You can inspect the loaded rules either by entering the package or by prefixing exported symbols with the package name.
+
+- Switch into the package:
+  - `sbcl --load car-expert-system/expert-system.lisp --load car-expert-system/car-rules.lisp --eval "(in-package :expert-system)" --eval "(format t \"Rules: ~A~%\" (length *rules*))" --eval "(dolist (r *rules*) (format t \"~A -> ~A~%\" (rule-name r) (rule-goal r)))" --eval "(sb-ext:exit)"`
+
+- Use package prefixes from `CL-USER`:
+  - `sbcl --load car-expert-system/expert-system.lisp --load car-expert-system/car-rules.lisp --eval "(format t \"Rules: ~A~%\" (length expert-system:*rules*))" --eval "(dolist (r expert-system:*rules*) (format t \"~A -> ~A~%\" (expert-system:rule-name r) (expert-system:rule-goal r)))" --eval "(sb-ext:exit)"`
+
+Tip: Unqualified names like `*rules*` refer to the current package. Use `EXPERT-SYSTEM:*rules*` if you don't switch packages.
 
 ## 🛠️ Prerequisites & Installation
 
@@ -741,9 +778,9 @@ You know everything is working when:
 
 ### Immediate Enhancements
 - [ ] Add more diagnostic rules
-- [ ] Implement confidence scoring
-- [ ] Create backward chaining inference
-- [ ] Add user interface improvements
+- [x] Implement confidence scoring (certainty factors)
+- [x] Create backward chaining inference (goal-driven)
+- [x] Add user interface improvements (interactive run + demos)
 
 ### Advanced Features
 - [ ] Web-based interface

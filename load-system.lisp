@@ -1,7 +1,12 @@
 ;; =============================================================================
-;; LOAD-SYSTEM.LISP
-;; Safe loader for car expert system from any directory
+;; LOAD-SYSTEM.LISP (Legacy)
+;; Deprecated forward-chaining loader kept for historical reference.
+;; NOTE: The active system is backward-chaining under car-expert-system/.
+;; Use: (load "car-expert-system/run.lisp") then (main)
 ;; =============================================================================
+
+(format t "WARNING: load-system.lisp is legacy and targets the old forward-chaining demo.~%")
+(format t "Use (load \"car-expert-system/run.lisp\") and (main) for the current system.~%")
 
 (defun load-car-expert-system ()
   "Load the car expert system with proper path handling"
