@@ -236,10 +236,6 @@ If these solutions don't work:
 ---
 
 **Remember:** The backward chaining system is more complex than forward chaining, but it's also more powerful. Most issues stem from package management or incorrect loading order. When in doubt, restart SBCL and load files step by step! 🚀
-(load "simple-car-expert.lisp")
-(demo-dead-battery)
-(interactive-diagnosis)
-```
 
 ## 🎯 If Nothing Else Works
 

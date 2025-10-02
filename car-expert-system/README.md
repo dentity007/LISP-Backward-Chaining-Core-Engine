@@ -65,30 +65,17 @@ Enable or disable detailed reasoning logs during a session:
 - Performance benchmarks use SBCL-specific memory metrics when available and fall back gracefully on other Lisps.
 
 If something seems off, check `../TROUBLESHOOTING.md` for a concise setup and debugging guide.
-5. **Structure conflicts**: When reloading files
-   - **Fix**: Restart REPL or use debugger restarts
 
 ## 🔬 Testing
 
 ### Working Tests
 
-- Quick smoke tests
-  - `sbcl --script test.lisp`
+- `sbcl --script test.lisp` – quick smoke test (dead battery & overheating scenarios)
+- `sbcl --load certainty-factor-tests.lisp --eval "(in-package :expert-system)" --eval "(run-certainty-tests)" --quit`
+- `sbcl --load comprehensive-tests.lisp --eval "(in-package :expert-system)" --eval "(run-comprehensive-tests)" --quit`
+- `sbcl --eval "(require :asdf)" --eval "(asdf:test-system :car-expert-system)" --quit`
 
-- Comprehensive scenario tests (fail with non‑zero exit on failure)
-  - `sbcl --load comprehensive-tests.lisp --eval "(in-package :expert-system)" --eval "(if (run-comprehensive-tests) (sb-ext:exit :code 0) (sb-ext:exit :code 1))"`
-
-- ASDF test entry (runs certainty + comprehensive suites, non‑zero exit on failure)
-  - `sbcl --eval "(require :asdf)" --eval "(asdf:test-system :car-expert-system)" --quit`
-
-### Recommended Testing:
-```bash
-# Use parent directory's working version
-cd ..
-sbcl
-(load "simple-car-expert.lisp")
-(demo-dead-battery)
-```
+During automated runs the suites set `*interactive-questions*` to `nil` so that no prompts appear.
 
 ## 📈 Future Enhancements
 
